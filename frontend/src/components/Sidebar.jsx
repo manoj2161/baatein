@@ -8,6 +8,7 @@ import {
   PlusSquare,
   UserRound,
   LogOut,
+  PenLine,
 } from "lucide-react";
 
 import { useNavigate, useLocation } from "react-router-dom";
@@ -20,6 +21,7 @@ const menuItems = [
   { label: "Reels", icon: Video, path: "/reels" },
   { label: "Messages", icon: MessageCircle, path: "/messages" },
   { label: "Notifications", icon: Heart, path: "/notifications" },
+  { label: "The Unsent", icon: PenLine, path: "/unsent" },
   { label: "Create", icon: PlusSquare, path: "/create" },
   { label: "Profile", icon: UserRound, path: null },
 ];
@@ -62,7 +64,9 @@ export default function Sidebar() {
           const active =
             label === "Profile"
               ? location.pathname.startsWith("/profile")
-              : location.pathname === path;
+              : label === "The Unsent"
+                ? location.pathname.startsWith("/unsent")
+                : location.pathname === path;
 
           return (
             <button

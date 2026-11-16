@@ -7,6 +7,8 @@ import Profile from "./pages/Profile";
 import Notifications from "./pages/Notifications";
 import Messages from "./pages/Messages";
 import Search from "./pages/Search";
+import Unsent from "./pages/Unsent";
+
 import ProtectedRoute from "./components/ProtectedRoute";
 import PublicRoute from "./components/PublicRoute";
 
@@ -25,6 +27,7 @@ const App = () => {
           <Route path="/profile/:userId" element={<Profile />} />
           <Route path="/notifications" element={<Notifications />} />
           <Route path="/messages" element={<Messages />} />
+          <Route path="/unsent" element={<Unsent />} />
         </Route>
 
         <Route path="*" element={<h2>Page not found</h2>} />

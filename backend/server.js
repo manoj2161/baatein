@@ -6,8 +6,10 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import { createServer } from "http";
 import dns from "node:dns";
+
 import connectDatabase from "./config/database.js";
 import initializeSocket from "./config/socket.js";
+
 import exploreRoutes from "./routes/exploreRoutes.js";
 import reelRoutes from "./routes/reelRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
@@ -17,8 +19,10 @@ import followRoutes from "./routes/followRoutes.js";
 import storyRoutes from "./routes/storyRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
+import unsentRoutes from "./routes/unsentRoutes.js";
 
 dns.setServers(["8.8.8.8", "8.8.4.4"]);
+
 const app = express();
 const httpServer = createServer(app);
 
@@ -47,6 +51,10 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/explore", exploreRoutes);
 app.use("/api/reels", reelRoutes);
+
+// THE UNSENT
+app.use("/api/unsent", unsentRoutes);
+
 app.get("/", (req, res) => {
   res.send("Baatein API is running");
 });
@@ -70,6 +78,7 @@ const startServer = async () => {
     httpServer.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
       console.log("Socket.IO is ready");
+      console.log("The Unsent routes are ready");
     });
   } catch (error) {
     console.error("Server startup failed:", error.message);
