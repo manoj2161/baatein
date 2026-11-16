@@ -13,6 +13,7 @@ import {
   MessageCircle,
   Feather,
   X,
+  CornerDownRight,
 } from "lucide-react";
 
 import Sidebar from "../components/Sidebar";
@@ -22,6 +23,9 @@ import {
   getMyUnsent,
   toggleUnsentReaction,
   deleteUnsent,
+  getUnsentReplies,
+  createUnsentReply,
+  deleteUnsentReply,
 } from "../services/unsentService";
 
 const categories = [
@@ -87,6 +91,14 @@ const Unsent = () => {
   const [success, setSuccess] = useState("");
 
   const [showComposer, setShowComposer] = useState(false);
+
+  // REPLIES
+  const [expandedReplies, setExpandedReplies] = useState({});
+  const [replies, setReplies] = useState({});
+  const [replyInputs, setReplyInputs] = useState({});
+  const [loadingReplies, setLoadingReplies] = useState({});
+  const [submittingReply, setSubmittingReply] = useState({});
+  const [deletingReply, setDeletingReply] = useState(null);
 
   const loadMessages = async (tab = activeTab) => {
     try {
@@ -210,6 +222,146 @@ const Unsent = () => {
     }
   };
 
+  // LOAD REPLIES
+  const handleToggleReplies = async (messageId) => {
+    if (expandedReplies[messageId]) {
+      setExpandedReplies((previous) => ({
+        ...previous,
+        [messageId]: false,
+      }));
+
+      return;
+    }
+
+    setExpandedReplies((previous) => ({
+      ...previous,
+      [messageId]: true,
+    }));
+
+    // Do not fetch again if replies are already loaded.
+    if (replies[messageId]) return;
+
+    try {
+      setLoadingReplies((previous) => ({
+        ...previous,
+        [messageId]: true,
+      }));
+
+      const data = await getUnsentReplies(messageId);
+
+      setReplies((previous) => ({
+        ...previous,
+        [messageId]: data,
+      }));
+    } catch (err) {
+      console.error("Failed to load replies:", err);
+
+      setError(err.response?.data?.message || "Unable to load replies.");
+
+      setExpandedReplies((previous) => ({
+        ...previous,
+        [messageId]: false,
+      }));
+    } finally {
+      setLoadingReplies((previous) => ({
+        ...previous,
+        [messageId]: false,
+      }));
+    }
+  };
+
+  // CREATE ANONYMOUS REPLY
+  const handleCreateReply = async (messageId) => {
+    const replyContent = replyInputs[messageId]?.trim();
+
+    if (!replyContent) return;
+
+    if (replyContent.length > 1000) {
+      setError("Reply cannot exceed 1000 characters.");
+      return;
+    }
+
+    try {
+      setSubmittingReply((previous) => ({
+        ...previous,
+        [messageId]: true,
+      }));
+
+      setError("");
+
+      const response = await createUnsentReply(messageId, replyContent);
+
+      setReplies((previous) => ({
+        ...previous,
+        [messageId]: [...(previous[messageId] || []), response.reply],
+      }));
+
+      setReplyInputs((previous) => ({
+        ...previous,
+        [messageId]: "",
+      }));
+
+      setMessages((previous) =>
+        previous.map((message) =>
+          message._id === messageId
+            ? {
+                ...message,
+                replyCount: response.replyCount,
+              }
+            : message,
+        ),
+      );
+    } catch (err) {
+      console.error("Failed to create reply:", err);
+
+      setError(err.response?.data?.message || "Unable to publish your reply.");
+    } finally {
+      setSubmittingReply((previous) => ({
+        ...previous,
+        [messageId]: false,
+      }));
+    }
+  };
+
+  // DELETE OWN REPLY
+  const handleDeleteReply = async (messageId, replyId) => {
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this reply?",
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setDeletingReply(replyId);
+
+      await deleteUnsentReply(messageId, replyId);
+
+      setReplies((previous) => ({
+        ...previous,
+        [messageId]: (previous[messageId] || []).filter(
+          (reply) => reply._id !== replyId,
+        ),
+      }));
+
+      setMessages((previous) =>
+        previous.map((message) =>
+          message._id === messageId
+            ? {
+                ...message,
+                replyCount: Math.max(0, (message.replyCount || 0) - 1),
+              }
+            : message,
+        ),
+      );
+    } catch (err) {
+      console.error("Failed to delete reply:", err);
+
+      setError(err.response?.data?.message || "Unable to delete this reply.");
+    } finally {
+      setDeletingReply(null);
+    }
+  };
+
   const getVisibilityIcon = (value) => {
     if (value === "followers") return Users;
     if (value === "public") return Globe;
@@ -267,6 +419,7 @@ const Unsent = () => {
 
           <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-gray-50 px-3 py-1.5 text-xs text-gray-500">
             <VisibilityIcon size={13} />
+
             <span className="hidden sm:inline">
               {message.visibility === "anonymous"
                 ? "Anonymous"
@@ -290,29 +443,46 @@ const Unsent = () => {
         </p>
 
         {/* Actions */}
-        <div className="mt-5 flex items-center justify-between border-t border-gray-100 pt-4">
-          <button
-            onClick={() => handleReaction(message._id)}
-            disabled={reactingId === message._id}
-            className={`flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium transition ${
-              message.isReacted
-                ? "bg-pink-50 text-pink-600"
-                : "text-gray-500 hover:bg-gray-50 hover:text-pink-600"
-            }`}
-          >
-            {reactingId === message._id ? (
-              <LoaderCircle size={17} className="animate-spin" />
-            ) : (
-              <Heart
-                size={17}
-                className={message.isReacted ? "fill-current" : ""}
-              />
-            )}
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => handleReaction(message._id)}
+              disabled={reactingId === message._id}
+              className={`flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium transition ${
+                message.isReacted
+                  ? "bg-pink-50 text-pink-600"
+                  : "text-gray-500 hover:bg-gray-50 hover:text-pink-600"
+              }`}
+            >
+              {reactingId === message._id ? (
+                <LoaderCircle size={17} className="animate-spin" />
+              ) : (
+                <Heart
+                  size={17}
+                  className={message.isReacted ? "fill-current" : ""}
+                />
+              )}
 
-            <span>I felt this too</span>
+              <span>I felt this too</span>
 
-            <span className="text-xs">{message.reactionCount || 0}</span>
-          </button>
+              <span className="text-xs">{message.reactionCount || 0}</span>
+            </button>
+
+            <button
+              onClick={() => handleToggleReplies(message._id)}
+              className={`flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium transition ${
+                expandedReplies[message._id]
+                  ? "bg-blue-50 text-[#315efb]"
+                  : "text-gray-500 hover:bg-gray-50 hover:text-[#315efb]"
+              }`}
+            >
+              <MessageCircle size={17} />
+
+              <span>Reply</span>
+
+              <span className="text-xs">{message.replyCount || 0}</span>
+            </button>
+          </div>
 
           {activeTab === "my" && (
             <button
@@ -329,6 +499,138 @@ const Unsent = () => {
             </button>
           )}
         </div>
+
+        {/* REPLIES SECTION */}
+        {expandedReplies[message._id] && (
+          <div className="mt-4 border-t border-gray-100 pt-4">
+            <div className="mb-4 flex items-center gap-2">
+              <CornerDownRight size={16} className="text-[#315efb]" />
+
+              <h3 className="text-sm font-semibold text-gray-800">
+                Anonymous replies
+              </h3>
+            </div>
+
+            {loadingReplies[message._id] ? (
+              <div className="flex items-center justify-center gap-2 py-6 text-sm text-gray-400">
+                <LoaderCircle
+                  size={18}
+                  className="animate-spin text-[#315efb]"
+                />
+                Loading replies...
+              </div>
+            ) : (
+              <>
+                {/* Reply list */}
+                <div className="flex flex-col gap-3">
+                  {(replies[message._id] || []).length === 0 ? (
+                    <p className="rounded-xl bg-gray-50 px-4 py-5 text-center text-sm text-gray-400">
+                      No replies yet. You can be the first to respond.
+                    </p>
+                  ) : (
+                    replies[message._id].map((reply) => (
+                      <div
+                        key={reply._id}
+                        className="rounded-xl bg-gray-50 p-3 sm:p-4"
+                      >
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-gray-500">
+                              <Lock size={13} />
+                            </div>
+
+                            <div>
+                              <p className="text-xs font-semibold text-gray-700">
+                                Anonymous
+                              </p>
+
+                              <p className="text-[11px] text-gray-400">
+                                {formatDate(reply.createdAt)}
+                              </p>
+                            </div>
+                          </div>
+
+                          {activeTab === "my" && (
+                            <button
+                              onClick={() =>
+                                handleDeleteReply(message._id, reply._id)
+                              }
+                              disabled={deletingReply === reply._id}
+                              title="Delete your reply"
+                              className="shrink-0 rounded-full p-2 text-gray-400 transition hover:bg-red-50 hover:text-red-500"
+                            >
+                              {deletingReply === reply._id ? (
+                                <LoaderCircle
+                                  size={15}
+                                  className="animate-spin"
+                                />
+                              ) : (
+                                <Trash2 size={15} />
+                              )}
+                            </button>
+                          )}
+                        </div>
+
+                        <p className="whitespace-pre-wrap break-words pl-10 text-sm leading-6 text-gray-700">
+                          {reply.content}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Reply composer */}
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleCreateReply(message._id);
+                  }}
+                  className="mt-4"
+                >
+                  <textarea
+                    value={replyInputs[message._id] || ""}
+                    onChange={(e) =>
+                      setReplyInputs((previous) => ({
+                        ...previous,
+                        [message._id]: e.target.value,
+                      }))
+                    }
+                    placeholder="Write an anonymous reply..."
+                    maxLength={1000}
+                    rows={2}
+                    className="w-full resize-y rounded-xl border border-gray-200 bg-white p-3 text-sm leading-6 text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-[#315efb]"
+                  />
+
+                  <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-[11px] text-gray-400">
+                      Your identity will not be displayed.{" "}
+                      {(replyInputs[message._id] || "").length}/1000
+                    </p>
+
+                    <button
+                      type="submit"
+                      disabled={
+                        submittingReply[message._id] ||
+                        !(replyInputs[message._id] || "").trim()
+                      }
+                      className="flex items-center justify-center gap-2 rounded-lg bg-[#315efb] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {submittingReply[message._id] ? (
+                        <LoaderCircle size={16} className="animate-spin" />
+                      ) : (
+                        <Send size={15} />
+                      )}
+
+                      {submittingReply[message._id]
+                        ? "Sending..."
+                        : "Send anonymously"}
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
+          </div>
+        )}
       </article>
     );
   };

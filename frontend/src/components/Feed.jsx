@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import CreatePost from "./CreatePost";
 import FeedPost from "./FeedPost";
 import { getFeed } from "../services/postService";
 
@@ -26,22 +25,12 @@ const Feed = () => {
     loadFeed();
   }, []);
 
-  const handlePostCreated = (newPost) => {
-    if (newPost) {
-      setPosts((previous) => [newPost, ...previous]);
-    } else {
-      loadFeed();
-    }
-  };
-
   const handleDelete = (postId) => {
     setPosts((previous) => previous.filter((post) => post._id !== postId));
   };
 
   return (
     <section className="mx-auto my-5 w-full max-w-[620px]">
-      <CreatePost onPostCreated={handlePostCreated} />
-
       {loading && (
         <p className="py-6 text-center text-sm text-gray-500">
           Loading posts...
@@ -62,7 +51,7 @@ const Feed = () => {
 
       {!loading && !error && posts.length === 0 && (
         <p className="rounded-xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500">
-          No posts yet. Follow people or share your first post.
+          No posts yet. Follow people to see their posts.
         </p>
       )}
 

@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import Unsent from "../models/Unsent.js";
+import UnsentReply from "../models/UnsentReply.js";
 import User from "../models/User.js";
 
 // CHECK WHETHER TWO USERS HAVE BLOCKED EACH OTHER
@@ -24,6 +25,35 @@ const isBlockedBetweenUsers = async (userId1, userId2) => {
   );
 };
 
+// CHECK WHETHER A USER CAN ACCESS AN UNSENT MESSAGE
+const canAccessUnsent = async (unsent, currentUserId) => {
+  const authorId = unsent.author._id || unsent.author;
+
+  if (authorId.toString() === currentUserId.toString()) {
+    return { allowed: true };
+  }
+
+  const blocked = await isBlockedBetweenUsers(currentUserId, authorId);
+
+  if (blocked) {
+    return { allowed: false, reason: "blocked" };
+  }
+
+  if (unsent.visibility === "followers") {
+    const author = await User.findById(authorId).select("followers");
+
+    const isFollower = author?.followers.some(
+      (id) => id.toString() === currentUserId.toString(),
+    );
+
+    if (!isFollower) {
+      return { allowed: false, reason: "followers" };
+    }
+  }
+
+  return { allowed: true };
+};
+
 // FORMAT MESSAGE WITHOUT EXPOSING PRIVATE USER INFORMATION
 const formatUnsent = (unsent, currentUserId) => {
   const isAnonymous = unsent.visibility === "anonymous";
@@ -44,7 +74,6 @@ const formatUnsent = (unsent, currentUserId) => {
     profilePicture: "",
   };
 
-  // Only expose public profile information for identified messages.
   if (!isAnonymous && author && typeof author === "object") {
     formattedAuthor = {
       _id: author._id,
@@ -61,10 +90,27 @@ const formatUnsent = (unsent, currentUserId) => {
     visibility: unsent.visibility,
     author: formattedAuthor,
     reactionCount: reactions.length,
+    replyCount: unsent.replyCount || 0,
     isReacted,
     isAnonymous,
     createdAt: unsent.createdAt,
     updatedAt: unsent.updatedAt,
+  };
+};
+
+// FORMAT ANONYMOUS REPLY
+const formatUnsentReply = (reply) => {
+  return {
+    _id: reply._id,
+    content: reply.content,
+    author: {
+      username: "Anonymous",
+      fullName: "Anonymous",
+      profilePicture: "",
+    },
+    isAnonymous: true,
+    createdAt: reply.createdAt,
+    updatedAt: reply.updatedAt,
   };
 };
 
@@ -145,12 +191,10 @@ export const getUnsentFeed = async (req, res) => {
       });
     }
 
-    // Find users who have blocked the current user.
     const blockedByUsers = await User.find({
       blockedUsers: currentUserId,
     }).distinct("_id");
 
-    // Exclude users blocked in either direction.
     const excludedIds = [...currentUser.blockedUsers, ...blockedByUsers];
 
     const followedIds = currentUser.following || [];
@@ -232,36 +276,15 @@ export const toggleUnsentReaction = async (req, res) => {
       });
     }
 
-    const authorId = unsent.author;
+    const access = await canAccessUnsent(unsent, currentUserId);
 
-    // Apply block restrictions to every visibility type,
-    // including anonymous messages.
-    if (authorId.toString() !== currentUserId.toString()) {
-      const blocked = await isBlockedBetweenUsers(currentUserId, authorId);
-
-      if (blocked) {
-        return res.status(404).json({
-          message: "Message not found.",
-        });
-      }
-    }
-
-    // Followers-only messages can only be accessed by followers.
-    if (
-      unsent.visibility === "followers" &&
-      authorId.toString() !== currentUserId.toString()
-    ) {
-      const author = await User.findById(authorId).select("followers");
-
-      const isFollower = author?.followers.some(
-        (id) => id.toString() === currentUserId.toString(),
-      );
-
-      if (!isFollower) {
-        return res.status(403).json({
-          message: "You cannot interact with this message.",
-        });
-      }
+    if (!access.allowed) {
+      return res.status(access.reason === "blocked" ? 404 : 403).json({
+        message:
+          access.reason === "blocked"
+            ? "Message not found."
+            : "You cannot interact with this message.",
+      });
     }
 
     const existingReaction = unsent.reactions.find(
@@ -295,6 +318,167 @@ export const toggleUnsentReaction = async (req, res) => {
   }
 };
 
+// CREATE ANONYMOUS REPLY
+export const createUnsentReply = async (req, res) => {
+  try {
+    const { unsentId } = req.params;
+    const { content } = req.body;
+    const currentUserId = req.user._id;
+
+    if (!mongoose.isValidObjectId(unsentId)) {
+      return res.status(400).json({
+        message: "Invalid message ID.",
+      });
+    }
+
+    if (typeof content !== "string" || !content.trim()) {
+      return res.status(400).json({
+        message: "Please write a reply first.",
+      });
+    }
+
+    if (content.trim().length > 1000) {
+      return res.status(400).json({
+        message: "Reply cannot exceed 1000 characters.",
+      });
+    }
+
+    const unsent = await Unsent.findById(unsentId);
+
+    if (!unsent) {
+      return res.status(404).json({
+        message: "Message not found.",
+      });
+    }
+
+    const access = await canAccessUnsent(unsent, currentUserId);
+
+    if (!access.allowed) {
+      return res.status(access.reason === "blocked" ? 404 : 403).json({
+        message:
+          access.reason === "blocked"
+            ? "Message not found."
+            : "You cannot reply to this message.",
+      });
+    }
+
+    const reply = await UnsentReply.create({
+      unsent: unsentId,
+      author: currentUserId,
+      content: content.trim(),
+      isAnonymous: true,
+    });
+
+    await Unsent.updateOne({ _id: unsentId }, { $inc: { replyCount: 1 } });
+
+    return res.status(201).json({
+      message: "Your anonymous reply was published.",
+      reply: formatUnsentReply(reply),
+      replyCount: (unsent.replyCount || 0) + 1,
+    });
+  } catch (error) {
+    console.error("Create Unsent reply error:", error);
+
+    return res.status(500).json({
+      message: "Unable to publish your reply.",
+    });
+  }
+};
+
+// GET REPLIES FOR AN UNSENT MESSAGE
+export const getUnsentReplies = async (req, res) => {
+  try {
+    const { unsentId } = req.params;
+    const currentUserId = req.user._id;
+
+    if (!mongoose.isValidObjectId(unsentId)) {
+      return res.status(400).json({
+        message: "Invalid message ID.",
+      });
+    }
+
+    const unsent = await Unsent.findById(unsentId);
+
+    if (!unsent) {
+      return res.status(404).json({
+        message: "Message not found.",
+      });
+    }
+
+    const access = await canAccessUnsent(unsent, currentUserId);
+
+    if (!access.allowed) {
+      return res.status(access.reason === "blocked" ? 404 : 403).json({
+        message:
+          access.reason === "blocked"
+            ? "Message not found."
+            : "You cannot view replies to this message.",
+      });
+    }
+
+    const replies = await UnsentReply.find({
+      unsent: unsentId,
+    })
+      .sort({ createdAt: 1 })
+      .lean();
+
+    return res.status(200).json({
+      replies: replies.map(formatUnsentReply),
+      count: replies.length,
+    });
+  } catch (error) {
+    console.error("Get Unsent replies error:", error);
+
+    return res.status(500).json({
+      message: "Unable to load replies.",
+    });
+  }
+};
+
+// DELETE YOUR OWN ANONYMOUS REPLY
+export const deleteUnsentReply = async (req, res) => {
+  try {
+    const { unsentId, replyId } = req.params;
+    const currentUserId = req.user._id;
+
+    if (
+      !mongoose.isValidObjectId(unsentId) ||
+      !mongoose.isValidObjectId(replyId)
+    ) {
+      return res.status(400).json({
+        message: "Invalid message or reply ID.",
+      });
+    }
+
+    const reply = await UnsentReply.findOneAndDelete({
+      _id: replyId,
+      unsent: unsentId,
+      author: currentUserId,
+    });
+
+    if (!reply) {
+      return res.status(404).json({
+        message: "Reply not found or you are not allowed to delete it.",
+      });
+    }
+
+    await Unsent.updateOne(
+      { _id: unsentId, replyCount: { $gt: 0 } },
+      { $inc: { replyCount: -1 } },
+    );
+
+    return res.status(200).json({
+      message: "Your reply was deleted.",
+    });
+  } catch (error) {
+    console.error("Delete Unsent reply error:", error);
+
+    return res.status(500).json({
+      message: "Unable to delete reply.",
+    });
+  }
+};
+
 // DELETE MY UNSENT MESSAGE
 export const deleteUnsent = async (req, res) => {
   try {
@@ -316,6 +500,11 @@ export const deleteUnsent = async (req, res) => {
         message: "Message not found or you are not allowed to delete it.",
       });
     }
+
+    // Remove all replies belonging to this message.
+    await UnsentReply.deleteMany({
+      unsent: unsentId,
+    });
 
     return res.status(200).json({
       message: "Unsent message deleted successfully.",

@@ -55,6 +55,12 @@ const unsentSchema = new mongoose.Schema(
     },
 
     reactions: [reactionSchema],
+
+    replyCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
   },
   { timestamps: true },
 );

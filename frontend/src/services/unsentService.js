@@ -29,3 +29,25 @@ export const deleteUnsent = async (unsentId) => {
   const response = await api.delete(`/unsent/${unsentId}`);
   return response.data;
 };
+
+// GET REPLIES FOR AN UNSENT MESSAGE
+export const getUnsentReplies = async (unsentId) => {
+  const response = await api.get(`/unsent/${unsentId}/replies`);
+  return response.data.replies || [];
+};
+
+// CREATE AN ANONYMOUS REPLY
+export const createUnsentReply = async (unsentId, content) => {
+  const response = await api.post(`/unsent/${unsentId}/replies`, {
+    content,
+  });
+
+  return response.data;
+};
+
+// DELETE YOUR OWN REPLY
+export const deleteUnsentReply = async (unsentId, replyId) => {
+  const response = await api.delete(`/unsent/${unsentId}/replies/${replyId}`);
+
+  return response.data;
+};
