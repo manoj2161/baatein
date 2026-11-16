@@ -1,40 +1,23 @@
 import Sidebar from "../components/Sidebar";
-import StoriesBar from "../components/StoriesBar";
-import PostCard from "../components/PostCard";
 import RightPanel from "../components/RightPanel";
-import Navbar from "../components/Navbar";
+import StoriesBar from "../components/StoriesBar";
+import Feed from "../components/Feed";
 
-import { posts } from "../data/dummyData";
-
-export default function Home({ activePage, setActivePage }) {
+const Home = () => {
   return (
-    <div className="app-layout">
-      <Sidebar activePage={activePage} setActivePage={setActivePage} />
+    <div className="min-h-screen bg-[#fafafa] text-[#171717]">
+      <Sidebar />
 
-      <main className="main-content">
-        <div className="feed-container">
+      <main className="min-h-screen px-4 pb-20 pt-6 md:ml-[240px] md:px-8 lg:mr-[320px]">
+        <div className="mx-auto w-full max-w-[620px]">
           <StoriesBar />
-
-          <div className="feed-heading">
-            <div>
-              <h2>Your feed</h2>
-              <p>Updates from your community</p>
-            </div>
-
-            <button className="filter-button">For you</button>
-          </div>
-
-          <div className="posts-list">
-            {posts.map((post) => (
-              <PostCard key={post.id} post={post} />
-            ))}
-          </div>
+          <Feed />
         </div>
       </main>
 
       <RightPanel />
-
-      <Navbar activePage={activePage} setActivePage={setActivePage} />
     </div>
   );
-}
+};
+
+export default Home;

@@ -1,513 +1,57 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+@import "tailwindcss";
 
-:root {
-  font-family: "Inter", sans-serif;
-  color: #242424;
-  background: #fafafa;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
+@theme {
+  --color-primary: #315efb;
+  --color-background: #fafafa;
+  --color-surface: #ffffff;
+  --font-sans: "Inter", sans-serif;
 }
 
 * {
-  margin: 0;
-  padding: 0;
   box-sizing: border-box;
 }
 
-body {
-  background: #fafafa;
+html {
+  font-family: "Inter", sans-serif;
+  scroll-behavior: smooth;
 }
 
-button {
-  border: none;
-  background: none;
-  color: inherit;
-  cursor: pointer;
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: #fafafa;
+  color: #171717;
+  font-family: "Inter", sans-serif;
+}
+
+button,
+input,
+textarea {
   font: inherit;
 }
 
-.app-layout {
-  min-height: 100vh;
+button {
+  cursor: pointer;
 }
 
-/* Sidebar */
-
-.sidebar {
-  position: fixed;
-  width: 235px;
-  height: 100vh;
-  padding: 32px 22px;
-  border-right: 1px solid #ededed;
-  background: white;
-  display: flex;
-  flex-direction: column;
-  z-index: 10;
+button:disabled {
+  cursor: not-allowed;
 }
 
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 25px;
-  font-weight: 800;
-  letter-spacing: -1.5px;
-  margin: 0 0 45px 8px;
-}
-
-.brand-icon {
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  color: white;
-  background: #315efb;
-  border-radius: 11px;
-  font-size: 25px;
-}
-
-.sidebar-menu {
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-}
-
-.nav-item {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  padding: 13px 12px;
-  border-radius: 10px;
-  text-align: left;
-  font-size: 14px;
-  color: #686868;
-  transition: 0.2s;
-}
-
-.nav-item:hover {
-  background: #f5f6fa;
-  color: #222;
-}
-
-.nav-item.active {
-  color: #315efb;
-  background: #eff3ff;
-  font-weight: 600;
-}
-
-.more-button {
-  margin-top: auto;
-}
-
-/* Main content */
-
-.main-content {
-  margin-left: 235px;
-  margin-right: 315px;
-  padding: 35px 30px;
-}
-
-.feed-container {
-  max-width: 620px;
-  margin: auto;
-}
-
-/* Stories */
-
-.stories-section {
-  padding: 22px;
-  background: white;
-  border: 1px solid #ededed;
-  border-radius: 16px;
-}
-
-.section-heading,
-.feed-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.section-heading h3,
-.feed-heading h2 {
-  font-size: 17px;
-  font-weight: 700;
-}
-
-.section-heading p,
-.feed-heading p {
-  color: #999;
-  font-size: 12px;
-  margin-top: 5px;
-}
-
-.text-button {
-  color: #315efb;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.stories-list {
-  display: flex;
-  gap: 23px;
-  overflow-x: auto;
-  margin-top: 22px;
-  padding-bottom: 4px;
-}
-
-.story-item {
-  min-width: 65px;
-  text-align: center;
-}
-
-.story-avatar {
-  width: 61px;
-  height: 61px;
-  padding: 3px;
-  border-radius: 50%;
-  border: 2px solid #315efb;
-  margin: auto;
-  position: relative;
-}
-
-.story-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 50%;
-}
-
-.story-item p {
-  font-size: 11px;
-  margin-top: 8px;
-  color: #555;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.add-story {
-  border: 2px dashed #bbb;
-}
-
-.add-story span {
-  position: absolute;
-  bottom: -2px;
-  right: -3px;
-  width: 21px;
-  height: 21px;
-  display: grid;
-  place-items: center;
-  background: #315efb;
-  color: white;
-  border: 2px solid white;
-  border-radius: 50%;
-  font-size: 15px;
-}
-
-/* Feed heading */
-
-.feed-heading {
-  margin: 30px 0 17px;
-}
-
-.filter-button {
-  background: white;
-  border: 1px solid #eaeaea;
-  padding: 9px 15px;
-  border-radius: 9px;
-  font-size: 12px;
-}
-
-/* Posts */
-
-.posts-list {
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
-}
-
-.post-card {
-  background: white;
-  border: 1px solid #ededed;
-  border-radius: 16px;
-  overflow: hidden;
-}
-
-.post-header {
-  padding: 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.post-user {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-}
-
-.post-user img {
-  width: 40px;
-  height: 40px;
-  object-fit: cover;
-  border-radius: 50%;
-}
-
-.post-user h4 {
-  font-size: 13px;
-}
-
-.post-user p {
-  color: #999;
-  font-size: 11px;
-  margin-top: 4px;
-}
-
-.icon-button {
-  color: #777;
-}
-
-.post-image {
-  width: 100%;
-  background: #f2f2f2;
-}
-
-.post-image img {
-  width: 100%;
-  max-height: 600px;
+img,
+video {
   display: block;
-  object-fit: cover;
 }
 
-.post-actions {
-  display: flex;
-  justify-content: space-between;
-  padding: 15px 17px 8px;
+/* Hide scrollbars but keep scrolling enabled */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
-.post-action-left {
-  display: flex;
-  gap: 17px;
-}
-
-.post-actions button {
-  display: flex;
-  align-items: center;
-}
-
-.post-actions button:hover {
-  opacity: 0.65;
-}
-
-.post-actions .liked {
-  color: #ed4964;
-}
-
-.post-actions .saved {
-  color: #315efb;
-}
-
-.post-content {
-  padding: 3px 17px 15px;
-}
-
-.post-content h4 {
-  font-size: 13px;
-  margin-bottom: 9px;
-}
-
-.post-content p {
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.comments-button {
-  display: block;
-  margin-top: 7px;
-  color: #999;
-  font-size: 12px;
-}
-
-.post-time {
-  display: block;
-  margin-top: 10px;
-  font-size: 10px;
-  color: #aaa;
-  text-transform: uppercase;
-}
-
-.comment-input {
-  border-top: 1px solid #f0f0f0;
-  padding: 13px 17px;
-  display: flex;
-  justify-content: space-between;
-}
-
-.comment-input input {
-  flex: 1;
-  border: none;
-  outline: none;
-  font-size: 12px;
-}
-
-.comment-input button {
-  color: #315efb;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-/* Right panel */
-
-.right-panel {
-  position: fixed;
-  right: 0;
-  top: 0;
-  width: 315px;
-  height: 100vh;
-  padding: 45px 25px;
-  background: #fafafa;
-}
-
-.current-user {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 40px;
-}
-
-.current-user img,
-.suggestion-user img {
-  width: 43px;
-  height: 43px;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.current-user h4,
-.suggestion-user h4 {
-  font-size: 12px;
-}
-
-.current-user p,
-.suggestion-user p {
-  font-size: 11px;
-  color: #999;
-  margin-top: 5px;
-}
-
-.current-user button {
-  margin-left: auto;
-  color: #315efb;
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.suggestion-heading {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 22px;
-}
-
-.suggestion-heading h4 {
-  font-size: 12px;
-  color: #888;
-}
-
-.suggestion-heading button {
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.suggestions {
-  display: flex;
-  flex-direction: column;
-  gap: 19px;
-}
-
-.suggestion-user {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.suggestion-user button {
-  margin-left: auto;
-  color: #315efb;
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.right-footer {
-  margin-top: 50px;
-  color: #bbb;
-  font-size: 10px;
-  line-height: 2;
-}
-
-/* Mobile navigation */
-
-.mobile-navbar {
+*::-webkit-scrollbar {
   display: none;
-}
-
-/* Responsive */
-
-@media (max-width: 1100px) {
-  .right-panel {
-    display: none;
-  }
-
-  .main-content {
-    margin-right: 0;
-  }
-}
-
-@media (max-width: 700px) {
-  .sidebar {
-    display: none;
-  }
-
-  .main-content {
-    margin: 0;
-    padding: 15px 10px 85px;
-  }
-
-  .stories-section {
-    padding: 17px 13px;
-    border-radius: 12px;
-  }
-
-  .stories-list {
-    gap: 17px;
-  }
-
-  .post-card {
-    border-radius: 12px;
-  }
-
-  .post-image img {
-    max-height: 500px;
-  }
-
-  .mobile-navbar {
-    display: flex;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    height: 62px;
-    justify-content: space-around;
-    align-items: center;
-    background: white;
-    border-top: 1px solid #ededed;
-    z-index: 20;
-  }
-
-  .mobile-navbar button {
-    color: #777;
-  }
-
-  .mobile-navbar .mobile-active {
-    color: #315efb;
-  }
+  width: 0;
+  height: 0;
 }
