@@ -5,6 +5,26 @@ import User from "../models/User.js";
 
 const onlineUsers = new Map();
 
+// CHECK WHETHER EITHER USER HAS BLOCKED THE OTHER
+const isBlockedBetweenUsers = async (userId1, userId2) => {
+  const [user1, user2] = await Promise.all([
+    User.findById(userId1).select("blockedUsers"),
+    User.findById(userId2).select("blockedUsers"),
+  ]);
+
+  if (!user1 || !user2) return true;
+
+  const user1BlocksUser2 = user1.blockedUsers?.some(
+    (id) => id.toString() === user2._id.toString(),
+  );
+
+  const user2BlocksUser1 = user2.blockedUsers?.some(
+    (id) => id.toString() === user1._id.toString(),
+  );
+
+  return user1BlocksUser2 || user2BlocksUser1;
+};
+
 const initializeSocket = (httpServer) => {
   const io = new Server(httpServer, {
     cors: {
@@ -13,6 +33,7 @@ const initializeSocket = (httpServer) => {
     },
   });
 
+  // SOCKET AUTHENTICATION
   io.use((socket, next) => {
     try {
       const cookieHeader = socket.handshake.headers.cookie || "";
@@ -24,6 +45,7 @@ const initializeSocket = (httpServer) => {
 
       if (!tokenCookie) {
         console.log("Socket authentication failed: token cookie missing");
+
         return next(new Error("Authentication required"));
       }
 
@@ -36,6 +58,7 @@ const initializeSocket = (httpServer) => {
       next();
     } catch (error) {
       console.error("Socket authentication error:", error.message);
+
       next(new Error("Invalid authentication"));
     }
   });
@@ -49,10 +72,10 @@ const initializeSocket = (httpServer) => {
 
     console.log("User connected to Socket.IO:", userId);
 
-    // Broadcast the current online users.
+    // BROADCAST CURRENT ONLINE USERS
     io.emit("onlineUsers", Array.from(onlineUsers.keys()));
 
-    // Notify the other participant that this user is typing.
+    // TYPING INDICATOR
     socket.on("typing", async ({ conversationId } = {}) => {
       try {
         if (!conversationId) return;
@@ -70,6 +93,11 @@ const initializeSocket = (httpServer) => {
 
         if (!recipient) return;
 
+        // PREVENT TYPING EVENTS BETWEEN BLOCKED USERS
+        const blocked = await isBlockedBetweenUsers(userId, recipient);
+
+        if (blocked) return;
+
         io.to(recipient.toString()).emit("userTyping", {
           conversationId: conversationId.toString(),
           userId: userId.toString(),
@@ -79,7 +107,7 @@ const initializeSocket = (httpServer) => {
       }
     });
 
-    // Notify the other participant that this user stopped typing.
+    // STOP TYPING INDICATOR
     socket.on("stopTyping", async ({ conversationId } = {}) => {
       try {
         if (!conversationId) return;
@@ -97,6 +125,11 @@ const initializeSocket = (httpServer) => {
 
         if (!recipient) return;
 
+        // PREVENT STOP-TYPING EVENTS BETWEEN BLOCKED USERS
+        const blocked = await isBlockedBetweenUsers(userId, recipient);
+
+        if (blocked) return;
+
         io.to(recipient.toString()).emit("userStoppedTyping", {
           conversationId: conversationId.toString(),
           userId: userId.toString(),
@@ -106,7 +139,7 @@ const initializeSocket = (httpServer) => {
       }
     });
 
-    // Handle user disconnection.
+    // HANDLE USER DISCONNECTION
     socket.on("disconnect", async () => {
       try {
         const connections = onlineUsers.get(userId) || 0;
@@ -120,7 +153,7 @@ const initializeSocket = (httpServer) => {
             lastSeen,
           });
 
-          // Notify everyone that this user is offline.
+          // NOTIFY EVERYONE THAT THIS USER IS OFFLINE
           io.emit("userStatus", {
             userId: userId.toString(),
             isOnline: false,

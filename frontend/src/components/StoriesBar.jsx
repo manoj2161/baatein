@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Plus, LoaderCircle } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { getStories, createStory } from "../services/storyService";
@@ -32,14 +32,19 @@ export default function StoriesBar() {
     loadStories();
   }, []);
 
+  const handleViewed = useCallback((storyId) => {
+    setStories((currentStories) =>
+      currentStories.map((story) =>
+        story._id === storyId ? { ...story, isViewed: true } : story,
+      ),
+    );
+  }, []);
+
   const handleUpload = async (event) => {
     const input = event.target;
     const file = input.files?.[0];
 
     if (!file) return;
-
-    console.log("Selected file:", file);
-    console.log("File type:", file.type);
 
     const isImage = file.type.startsWith("image/");
     const isVideo = file.type.startsWith("video/");
@@ -74,13 +79,14 @@ export default function StoriesBar() {
   };
 
   const handleDelete = (storyId) => {
-    const updatedStories = stories.filter((story) => story._id !== storyId);
+    setStories((currentStories) =>
+      currentStories.filter((story) => story._id !== storyId),
+    );
 
-    setStories(updatedStories);
     setSelectedIndex(null);
   };
 
-  // Show only the latest story for each user in the story bar.
+  // Show the latest story for each user.
   const latestStories = Object.values(
     stories.reduce((groups, story) => {
       const userId = story.user?._id;
@@ -111,16 +117,23 @@ export default function StoriesBar() {
   const openStory = (story) => {
     const index = stories.findIndex((item) => item._id === story._id);
 
-    if (index !== -1) setSelectedIndex(index);
+    if (index !== -1) {
+      setSelectedIndex(index);
+    }
+  };
+
+  const hasViewedStory = (story) => {
+    return Boolean(story.isViewed);
   };
 
   return (
     <>
-      <section className="mb-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+      <section className="mb-4 rounded-xl border border-gray-200 bg-white p-3 shadow-sm sm:mb-6 sm:p-5">
         {/* Heading */}
-        <div className="mb-5 flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between sm:mb-5">
           <div>
             <h3 className="text-base font-semibold text-gray-900">Stories</h3>
+
             <p className="mt-1 text-xs text-gray-500">See what's happening</p>
           </div>
 
@@ -128,9 +141,9 @@ export default function StoriesBar() {
         </div>
 
         {/* Story list */}
-        <div className="flex gap-5 overflow-x-auto pb-2">
+        <div className="flex gap-4 overflow-x-auto overscroll-x-contain pb-2 scrollbar-hide sm:gap-5">
           {/* Add story */}
-          <label className="flex min-w-[65px] cursor-pointer flex-col items-center gap-2">
+          <label className="flex w-[68px] min-w-[68px] shrink-0 cursor-pointer flex-col items-center gap-2">
             <div className="relative h-[62px] w-[62px] rounded-full border-2 border-gray-200 p-[3px]">
               <img
                 src={
@@ -164,32 +177,44 @@ export default function StoriesBar() {
           </label>
 
           {/* Other stories */}
-          {orderedStories.map((story) => (
-            <button
-              key={story._id}
-              onClick={() => openStory(story)}
-              className="flex min-w-[65px] flex-col items-center gap-2"
-            >
-              <div className="h-[62px] w-[62px] rounded-full bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 p-[2px]">
-                <div className="h-full w-full rounded-full bg-white p-[3px]">
-                  <img
-                    src={
-                      story.user?.profilePicture ||
-                      "https://placehold.co/150x150?text=U"
-                    }
-                    alt={story.user?.username || "User"}
-                    className="h-full w-full rounded-full object-cover"
-                  />
-                </div>
-              </div>
+          {orderedStories.map((story) => {
+            const isViewed = hasViewedStory(story);
 
-              <span className="max-w-[70px] truncate text-xs text-gray-600">
-                {String(story.user?._id) === String(user?._id)
-                  ? "Your story"
-                  : story.user?.username || "User"}
-              </span>
-            </button>
-          ))}
+            return (
+              <button
+                key={story._id}
+                type="button"
+                onClick={() => openStory(story)}
+                aria-label={`View ${story.user?.username || "user"}'s story`}
+                className="flex w-[68px] min-w-[68px] shrink-0 flex-col items-center gap-2"
+              >
+                <div
+                  className={`h-[62px] w-[62px] rounded-full p-[2px] ${
+                    isViewed
+                      ? "bg-gray-300"
+                      : "bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600"
+                  }`}
+                >
+                  <div className="h-full w-full rounded-full bg-white p-[3px]">
+                    <img
+                      src={
+                        story.user?.profilePicture ||
+                        "https://placehold.co/150x150?text=U"
+                      }
+                      alt={story.user?.username || "User"}
+                      className="h-full w-full rounded-full object-cover"
+                    />
+                  </div>
+                </div>
+
+                <span className="max-w-[70px] truncate text-xs text-gray-600">
+                  {String(story.user?._id) === String(user?._id)
+                    ? "Your story"
+                    : story.user?.username || "User"}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
         {loading && (
@@ -216,6 +241,7 @@ export default function StoriesBar() {
           initialIndex={selectedIndex}
           onClose={() => setSelectedIndex(null)}
           onDelete={handleDelete}
+          onViewed={handleViewed}
         />
       )}
     </>

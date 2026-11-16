@@ -28,7 +28,7 @@ export default function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const { user, logout, totalUnreadCount } = useAuth();
+  const { user, logout, totalUnreadCount, notificationUnreadCount } = useAuth();
 
   const handleLogout = async () => {
     try {
@@ -87,9 +87,19 @@ export default function Sidebar() {
 
               <span className="flex-1">{label}</span>
 
+              {/* Messages unread badge */}
               {label === "Messages" && totalUnreadCount > 0 && (
                 <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#315efb] px-1.5 text-[11px] font-semibold text-white">
                   {totalUnreadCount > 99 ? "99+" : totalUnreadCount}
+                </span>
+              )}
+
+              {/* Notifications unread badge */}
+              {label === "Notifications" && notificationUnreadCount > 0 && (
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#315efb] px-1.5 text-[11px] font-semibold text-white">
+                  {notificationUnreadCount > 99
+                    ? "99+"
+                    : notificationUnreadCount}
                 </span>
               )}
             </button>

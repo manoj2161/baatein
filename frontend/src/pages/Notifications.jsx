@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Heart, MessageCircle, UserPlus, Bell, Check } from "lucide-react";
 
 import Sidebar from "../components/Sidebar";
@@ -60,6 +61,12 @@ const Notifications = () => {
     }
   };
 
+  const handleSenderClick = (notification) => {
+    if (!notification.isRead) {
+      handleRead(notification._id);
+    }
+  };
+
   const getNotificationIcon = (type) => {
     switch (type) {
       case "like":
@@ -101,6 +108,7 @@ const Notifications = () => {
               <h1 className="text-2xl font-bold text-gray-900">
                 Notifications
               </h1>
+
               <p className="mt-1 text-sm text-gray-500">
                 {unreadCount} unread notifications
               </p>
@@ -125,6 +133,7 @@ const Notifications = () => {
             ) : error ? (
               <div className="p-10 text-center text-sm text-red-500">
                 {error}
+
                 <button
                   onClick={loadNotifications}
                   className="ml-2 font-semibold text-[#315efb]"
@@ -147,53 +156,81 @@ const Notifications = () => {
                 </p>
               </div>
             ) : (
-              notifications.map((notification) => (
-                <div
-                  key={notification._id}
-                  onClick={() => {
-                    if (!notification.isRead) {
-                      handleRead(notification._id);
-                    }
-                  }}
-                  className={`flex cursor-pointer items-center gap-3 border-b border-gray-100 px-4 py-4 transition hover:bg-gray-50 ${
-                    !notification.isRead ? "bg-blue-50/50" : "bg-white"
-                  }`}
-                >
-                  <img
-                    src={
-                      notification.sender?.profilePicture ||
-                      `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                        notification.sender?.username || "User",
-                      )}`
-                    }
-                    alt=""
-                    className="h-11 w-11 shrink-0 rounded-full object-cover"
-                  />
+              notifications.map((notification) => {
+                const sender = notification.sender;
+                const senderId = sender?._id || sender?.id;
 
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm text-gray-800">
-                      <span className="font-semibold">
-                        {notification.sender?.username || "Someone"}
-                      </span>{" "}
-                      {getNotificationText(notification)}
-                    </p>
+                const profileUrl = senderId ? `/profile/${senderId}` : null;
 
-                    <p className="mt-1 text-xs text-gray-400">
-                      {notification.createdAt
-                        ? new Date(notification.createdAt).toLocaleString()
-                        : ""}
-                    </p>
+                const profilePicture =
+                  sender?.profilePicture ||
+                  `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                    sender?.username || "User",
+                  )}`;
+
+                return (
+                  <div
+                    key={notification._id}
+                    className={`flex items-center gap-3 border-b border-gray-100 px-4 py-4 transition hover:bg-gray-50 ${
+                      !notification.isRead ? "bg-blue-50/50" : "bg-white"
+                    }`}
+                  >
+                    {/* Sender profile picture */}
+                    {profileUrl ? (
+                      <Link
+                        to={profileUrl}
+                        onClick={() => handleSenderClick(notification)}
+                        title={`View ${sender?.username || "user"}'s profile`}
+                      >
+                        <img
+                          src={profilePicture}
+                          alt=""
+                          className="h-11 w-11 shrink-0 rounded-full object-cover"
+                        />
+                      </Link>
+                    ) : (
+                      <img
+                        src={profilePicture}
+                        alt=""
+                        className="h-11 w-11 shrink-0 rounded-full object-cover"
+                      />
+                    )}
+
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-gray-800">
+                        {profileUrl ? (
+                          <Link
+                            to={profileUrl}
+                            onClick={() => handleSenderClick(notification)}
+                            className="font-semibold hover:text-[#315efb] hover:underline"
+                          >
+                            {sender?.username || "Someone"}
+                          </Link>
+                        ) : (
+                          <span className="font-semibold">
+                            {sender?.username || "Someone"}
+                          </span>
+                        )}{" "}
+                        {getNotificationText(notification)}
+                      </p>
+
+                      <p className="mt-1 text-xs text-gray-400">
+                        {notification.createdAt
+                          ? new Date(notification.createdAt).toLocaleString()
+                          : ""}
+                      </p>
+                    </div>
+
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-50">
+                      {getNotificationIcon(notification.type)}
+                    </div>
+
+                    {!notification.isRead && (
+                      <span className="h-2 w-2 shrink-0 rounded-full bg-[#315efb]" />
+                    )}
                   </div>
-
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-50">
-                    {getNotificationIcon(notification.type)}
-                  </div>
-
-                  {!notification.isRead && (
-                    <span className="h-2 w-2 shrink-0 rounded-full bg-[#315efb]" />
-                  )}
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>

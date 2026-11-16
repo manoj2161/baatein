@@ -1,7 +1,37 @@
 import mongoose from "mongoose";
+
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
 import User from "../models/User.js";
+
+// CHECK WHETHER EITHER USER HAS BLOCKED THE OTHER
+const isBlockedBetweenUsers = async (userId1, userId2) => {
+  const [user1, user2] = await Promise.all([
+    User.findById(userId1).select("blockedUsers"),
+    User.findById(userId2).select("blockedUsers"),
+  ]);
+
+  if (!user1 || !user2) {
+    return true;
+  }
+
+  const user1BlocksUser2 = user1.blockedUsers?.some(
+    (id) => id.toString() === userId2.toString(),
+  );
+
+  const user2BlocksUser1 = user2.blockedUsers?.some(
+    (id) => id.toString() === userId1.toString(),
+  );
+
+  return user1BlocksUser2 || user2BlocksUser1;
+};
+
+// GET OTHER PARTICIPANT FROM CONVERSATION
+const getOtherParticipantId = (conversation, currentUserId) => {
+  return conversation.participants.find(
+    (id) => id.toString() !== currentUserId.toString(),
+  );
+};
 
 // CREATE OR GET CONVERSATION
 export const createConversation = async (req, res) => {
@@ -14,13 +44,25 @@ export const createConversation = async (req, res) => {
       !mongoose.Types.ObjectId.isValid(userId) ||
       userId === currentUserId.toString()
     ) {
-      return res.status(400).json({ message: "Invalid user" });
+      return res.status(400).json({
+        message: "Invalid user",
+      });
     }
 
     const otherUser = await User.findById(userId);
 
     if (!otherUser) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    const blocked = await isBlockedBetweenUsers(currentUserId, userId);
+
+    if (blocked) {
+      return res.status(403).json({
+        message: "You cannot start a conversation with this user.",
+      });
     }
 
     let conversation = await Conversation.findOne({
@@ -51,9 +93,12 @@ export const createConversation = async (req, res) => {
       "username profilePicture lastSeen",
     );
 
-    return res.status(200).json({ conversation });
+    return res.status(200).json({
+      conversation,
+    });
   } catch (error) {
     console.error("Create conversation error:", error);
+
     return res.status(500).json({
       message: "Unable to create conversation",
     });
@@ -76,18 +121,27 @@ export const getConversations = async (req, res) => {
 
     const conversationsWithUnreadCount = await Promise.all(
       conversations.map(async (conversation) => {
-        const unreadCount = await Message.countDocuments({
-          conversation: conversation._id,
-          sender: { $ne: userId },
-          isRead: false,
-          deletedFor: { $ne: userId },
-        });
+        const otherUserId = getOtherParticipantId(conversation, userId);
+
+        const blocked = otherUserId
+          ? await isBlockedBetweenUsers(userId, otherUserId)
+          : false;
+
+        const unreadCount = blocked
+          ? 0
+          : await Message.countDocuments({
+              conversation: conversation._id,
+              sender: { $ne: userId },
+              isRead: false,
+              deletedFor: { $ne: userId },
+            });
 
         let conversationData = conversation.toObject();
 
-        // If the last message was hidden by this user, show the latest
-        // message that is still visible to them in the inbox preview.
-        if (
+        // Hide the last message preview while either user has blocked the other.
+        if (blocked) {
+          conversationData.lastMessage = null;
+        } else if (
           conversationData.lastMessage?.deletedFor?.some(
             (id) => String(id) === String(userId),
           )
@@ -103,6 +157,7 @@ export const getConversations = async (req, res) => {
         return {
           ...conversationData,
           unreadCount,
+          isBlocked: blocked,
         };
       }),
     );
@@ -112,6 +167,7 @@ export const getConversations = async (req, res) => {
     });
   } catch (error) {
     console.error("Get conversations error:", error);
+
     return res.status(500).json({
       message: "Unable to load conversations",
     });
@@ -134,16 +190,26 @@ export const getArchivedConversations = async (req, res) => {
 
     const conversationsWithUnreadCount = await Promise.all(
       conversations.map(async (conversation) => {
-        const unreadCount = await Message.countDocuments({
-          conversation: conversation._id,
-          sender: { $ne: userId },
-          isRead: false,
-          deletedFor: { $ne: userId },
-        });
+        const otherUserId = getOtherParticipantId(conversation, userId);
+
+        const blocked = otherUserId
+          ? await isBlockedBetweenUsers(userId, otherUserId)
+          : false;
+
+        const unreadCount = blocked
+          ? 0
+          : await Message.countDocuments({
+              conversation: conversation._id,
+              sender: { $ne: userId },
+              isRead: false,
+              deletedFor: { $ne: userId },
+            });
 
         let conversationData = conversation.toObject();
 
-        if (
+        if (blocked) {
+          conversationData.lastMessage = null;
+        } else if (
           conversationData.lastMessage?.deletedFor?.some(
             (id) => String(id) === String(userId),
           )
@@ -159,6 +225,7 @@ export const getArchivedConversations = async (req, res) => {
         return {
           ...conversationData,
           unreadCount,
+          isBlocked: blocked,
         };
       }),
     );
@@ -168,6 +235,7 @@ export const getArchivedConversations = async (req, res) => {
     });
   } catch (error) {
     console.error("Get archived conversations error:", error);
+
     return res.status(500).json({
       message: "Unable to load archived conversations",
     });
@@ -185,9 +253,13 @@ export const archiveConversation = async (req, res) => {
         participants: userId,
       },
       {
-        $addToSet: { archivedBy: userId },
+        $addToSet: {
+          archivedBy: userId,
+        },
       },
-      { new: true },
+      {
+        new: true,
+      },
     );
 
     if (!conversation) {
@@ -201,6 +273,7 @@ export const archiveConversation = async (req, res) => {
     });
   } catch (error) {
     console.error("Archive conversation error:", error);
+
     return res.status(500).json({
       message: "Unable to archive conversation",
     });
@@ -223,7 +296,9 @@ export const unarchiveConversation = async (req, res) => {
           deletedBy: userId,
         },
       },
-      { new: true },
+      {
+        new: true,
+      },
     );
 
     if (!conversation) {
@@ -237,6 +312,7 @@ export const unarchiveConversation = async (req, res) => {
     });
   } catch (error) {
     console.error("Unarchive conversation error:", error);
+
     return res.status(500).json({
       message: "Unable to restore conversation",
     });
@@ -254,10 +330,16 @@ export const deleteConversation = async (req, res) => {
         participants: userId,
       },
       {
-        $addToSet: { deletedBy: userId },
-        $pull: { archivedBy: userId },
+        $addToSet: {
+          deletedBy: userId,
+        },
+        $pull: {
+          archivedBy: userId,
+        },
       },
-      { new: true },
+      {
+        new: true,
+      },
     );
 
     if (!conversation) {
@@ -271,6 +353,7 @@ export const deleteConversation = async (req, res) => {
     });
   } catch (error) {
     console.error("Delete conversation error:", error);
+
     return res.status(500).json({
       message: "Unable to delete conversation",
     });
@@ -281,15 +364,32 @@ export const deleteConversation = async (req, res) => {
 export const getMessages = async (req, res) => {
   try {
     const userId = req.user._id;
+    const { conversationId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+      return res.status(400).json({
+        message: "Invalid conversation ID",
+      });
+    }
 
     const conversation = await Conversation.findOne({
-      _id: req.params.conversationId,
+      _id: conversationId,
       participants: userId,
     });
 
     if (!conversation) {
       return res.status(404).json({
         message: "Conversation not found",
+      });
+    }
+
+    const otherUserId = getOtherParticipantId(conversation, userId);
+
+    const blocked = await isBlockedBetweenUsers(userId, otherUserId);
+
+    if (blocked) {
+      return res.status(403).json({
+        message: "You cannot access this conversation.",
       });
     }
 
@@ -303,7 +403,9 @@ export const getMessages = async (req, res) => {
 
     messages.reverse();
 
-    return res.status(200).json({ messages });
+    return res.status(200).json({
+      messages,
+    });
   } catch (error) {
     console.error("Get messages error:", error);
 
@@ -312,10 +414,13 @@ export const getMessages = async (req, res) => {
     });
   }
 };
+
 // SEND MESSAGE
 export const sendMessage = async (req, res) => {
   try {
     const { text } = req.body;
+    const currentUserId = req.user._id;
+    const { conversationId } = req.params;
 
     if (!text || !text.trim()) {
       return res.status(400).json({
@@ -323,9 +428,15 @@ export const sendMessage = async (req, res) => {
       });
     }
 
+    if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+      return res.status(400).json({
+        message: "Invalid conversation ID",
+      });
+    }
+
     const conversation = await Conversation.findOne({
-      _id: req.params.conversationId,
-      participants: req.user._id,
+      _id: conversationId,
+      participants: currentUserId,
     });
 
     if (!conversation) {
@@ -334,9 +445,19 @@ export const sendMessage = async (req, res) => {
       });
     }
 
+    const otherUserId = getOtherParticipantId(conversation, currentUserId);
+
+    const blocked = await isBlockedBetweenUsers(currentUserId, otherUserId);
+
+    if (blocked) {
+      return res.status(403).json({
+        message: "You cannot send messages to this user.",
+      });
+    }
+
     const newMessage = await Message.create({
       conversation: conversation._id,
-      sender: req.user._id,
+      sender: currentUserId,
       text: text.trim(),
     });
 
@@ -344,11 +465,11 @@ export const sendMessage = async (req, res) => {
 
     // Restore the conversation for the sender only.
     conversation.archivedBy = conversation.archivedBy.filter(
-      (id) => id.toString() !== req.user._id.toString(),
+      (id) => id.toString() !== currentUserId.toString(),
     );
 
     conversation.deletedBy = conversation.deletedBy.filter(
-      (id) => id.toString() !== req.user._id.toString(),
+      (id) => id.toString() !== currentUserId.toString(),
     );
 
     await conversation.save();
@@ -369,13 +490,13 @@ export const sendMessage = async (req, res) => {
     });
   } catch (error) {
     console.error("Send message error:", error);
+
     return res.status(500).json({
       message: "Unable to send message",
     });
   }
 };
 
-// DELETE SELECTED MESSAGES FOR EVERYONE (SOFT DELETE)
 // DELETE SELECTED MESSAGES FOR EVERYONE
 export const deleteMessagesForEveryone = async (req, res) => {
   try {
@@ -529,11 +650,18 @@ export const deleteMessagesForMe = async (req, res) => {
     });
   }
 };
+
 // MARK RECEIVED MESSAGES AS READ
 export const markMessagesAsRead = async (req, res) => {
   try {
     const { conversationId } = req.params;
     const userId = req.user._id;
+
+    if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+      return res.status(400).json({
+        message: "Invalid conversation ID",
+      });
+    }
 
     const conversation = await Conversation.findOne({
       _id: conversationId,
@@ -543,6 +671,16 @@ export const markMessagesAsRead = async (req, res) => {
     if (!conversation) {
       return res.status(404).json({
         message: "Conversation not found",
+      });
+    }
+
+    const otherUserId = getOtherParticipantId(conversation, userId);
+
+    const blocked = await isBlockedBetweenUsers(userId, otherUserId);
+
+    if (blocked) {
+      return res.status(403).json({
+        message: "You cannot access this conversation.",
       });
     }
 
@@ -565,7 +703,9 @@ export const markMessagesAsRead = async (req, res) => {
 
     await Message.updateMany(
       {
-        _id: { $in: unreadMessages.map((message) => message._id) },
+        _id: {
+          $in: unreadMessages.map((message) => message._id),
+        },
       },
       {
         $set: {
@@ -603,6 +743,7 @@ export const markMessagesAsRead = async (req, res) => {
     });
   } catch (error) {
     console.error("Mark messages as read error:", error);
+
     return res.status(500).json({
       message: "Unable to mark messages as read",
     });

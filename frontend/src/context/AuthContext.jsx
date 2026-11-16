@@ -19,6 +19,9 @@ export const AuthProvider = ({ children }) => {
   // Stores unread message counts for individual conversations.
   const [unreadCounts, setUnreadCounts] = useState({});
 
+  // Stores the total unread notification count.
+  const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
+
   const checkAuth = async () => {
     try {
       const response = await api.get("/users/profile");
@@ -38,7 +41,7 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
-  // Load unread counts when the user is authenticated.
+  // Load unread message counts when the user is authenticated.
   useEffect(() => {
     if (!user?._id) {
       setUnreadCounts({});
@@ -64,6 +67,26 @@ export const AuthProvider = ({ children }) => {
     };
 
     loadUnreadCounts();
+  }, [user?._id]);
+
+  // Load unread notification count when the user is authenticated.
+  useEffect(() => {
+    if (!user?._id) {
+      setNotificationUnreadCount(0);
+      return;
+    }
+
+    const loadNotificationCount = async () => {
+      try {
+        const response = await api.get("/notifications");
+
+        setNotificationUnreadCount(response.data.unreadCount || 0);
+      } catch (error) {
+        console.error("Failed to load notification count:", error);
+      }
+    };
+
+    loadNotificationCount();
   }, [user?._id]);
 
   // Maintain one global Socket.IO connection.
@@ -143,6 +166,18 @@ export const AuthProvider = ({ children }) => {
       }));
     });
 
+    // Increase notification count when a new notification arrives.
+    newSocket.on("newNotification", (notification) => {
+      if (notification.isRead) return;
+
+      setNotificationUnreadCount((previous) => previous + 1);
+    });
+
+    // Use the server's unread count after notifications are marked as read.
+    newSocket.on("notificationCountUpdated", (data) => {
+      setNotificationUnreadCount(data.unreadCount || 0);
+    });
+
     return () => {
       newSocket.disconnect();
       setSocket(null);
@@ -180,6 +215,7 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setUser(null);
       setUnreadCounts({});
+      setNotificationUnreadCount(0);
     }
   };
 
@@ -196,6 +232,7 @@ export const AuthProvider = ({ children }) => {
         onlineUsers,
         unreadCounts,
         totalUnreadCount,
+        notificationUnreadCount,
         signup,
         login,
         logout,

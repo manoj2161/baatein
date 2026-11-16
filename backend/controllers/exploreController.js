@@ -36,7 +36,6 @@ export const getExplorePosts = async (req, res) => {
 // SEARCH USERS AND POSTS
 export const searchExplore = async (req, res) => {
   try {
-    // Support both query and q parameters.
     const search = (req.query.query || req.query.q || "").trim();
 
     if (!search) {
@@ -48,11 +47,11 @@ export const searchExplore = async (req, res) => {
 
     const searchRegex = new RegExp(escapeRegex(search), "i");
 
-    // Search users independently of their conversations.
+    // Search users and include followers to determine follow status.
     const users = await User.find({
       username: searchRegex,
     })
-      .select("username profilePicture bio")
+      .select("username fullName profilePicture bio status followers")
       .limit(10);
 
     const posts = await Post.find({

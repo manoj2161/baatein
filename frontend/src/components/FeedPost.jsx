@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { toggleLike, addComment, deletePost } from "../services/postService";
 
@@ -18,7 +19,8 @@ const FeedPost = ({ post, onDelete }) => {
 
   const author = post.user || {};
 
-  const isOwner = String(author._id) === String(user?._id);
+  const authorId = author._id;
+  const isOwner = String(authorId) === String(user?._id);
 
   const handleLike = async () => {
     const previousLiked = liked;
@@ -49,6 +51,7 @@ const FeedPost = ({ post, onDelete }) => {
         ...previous,
         {
           user: {
+            _id: user._id,
             username: user.username,
             profilePicture: user.profilePicture,
           },
@@ -78,17 +81,42 @@ const FeedPost = ({ post, onDelete }) => {
   return (
     <article className="mb-5 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
       <div className="flex items-center justify-between p-4">
-        <div className="flex items-center gap-3">
-          <img
-            src={author.profilePicture || "https://placehold.co/45x45?text=U"}
-            alt=""
-            className="h-11 w-11 rounded-full object-cover"
-          />
+        <div className="flex min-w-0 items-center gap-3">
+          {authorId ? (
+            <Link
+              to={`/profile/${authorId}`}
+              className="shrink-0"
+              aria-label={`Open ${author.username || "User"}'s profile`}
+            >
+              <img
+                src={
+                  author.profilePicture || "https://placehold.co/45x45?text=U"
+                }
+                alt=""
+                className="h-11 w-11 rounded-full object-cover"
+              />
+            </Link>
+          ) : (
+            <img
+              src={author.profilePicture || "https://placehold.co/45x45?text=U"}
+              alt=""
+              className="h-11 w-11 rounded-full object-cover"
+            />
+          )}
 
-          <div className="flex flex-col gap-1">
-            <strong className="text-sm font-semibold text-gray-900">
-              {author.username || "User"}
-            </strong>
+          <div className="flex min-w-0 flex-col gap-1">
+            {authorId ? (
+              <Link
+                to={`/profile/${authorId}`}
+                className="truncate text-sm font-semibold text-gray-900 hover:text-[#315efb]"
+              >
+                {author.username || "User"}
+              </Link>
+            ) : (
+              <strong className="text-sm font-semibold text-gray-900">
+                {author.username || "User"}
+              </strong>
+            )}
 
             <span className="text-xs text-gray-500">
               {post.createdAt
@@ -101,7 +129,7 @@ const FeedPost = ({ post, onDelete }) => {
         {isOwner && (
           <button
             onClick={handleDelete}
-            className="text-sm text-red-500 hover:text-red-700"
+            className="shrink-0 text-sm text-red-500 hover:text-red-700"
           >
             Delete
           </button>
@@ -146,9 +174,19 @@ const FeedPost = ({ post, onDelete }) => {
       <div className="space-y-2 px-4 pt-3">
         {comments.map((comment, index) => (
           <p key={comment._id || index} className="text-sm">
-            <strong className="mr-1 font-semibold text-gray-900">
-              {comment.user?.username || "User"}
-            </strong>
+            {comment.user?._id ? (
+              <Link
+                to={`/profile/${comment.user._id}`}
+                className="mr-1 font-semibold text-gray-900 hover:text-[#315efb]"
+              >
+                {comment.user.username || "User"}
+              </Link>
+            ) : (
+              <strong className="mr-1 font-semibold text-gray-900">
+                {comment.user?.username || "User"}
+              </strong>
+            )}
+
             <span className="text-gray-700">{comment.text}</span>
           </p>
         ))}

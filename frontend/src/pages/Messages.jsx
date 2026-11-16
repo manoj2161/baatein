@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Search,
   Send,
@@ -1240,7 +1241,12 @@ const Messages = () => {
                       <ArrowLeft size={20} />
                     </button>
 
-                    <div className="relative">
+                    {/* CLICK PROFILE PICTURE TO OPEN USER PROFILE */}
+                    <Link
+                      to={`/profile/${activeUser._id}`}
+                      className="relative shrink-0"
+                      title={`View ${activeUser.username}'s profile`}
+                    >
                       <img
                         src={
                           activeUser.profilePicture ||
@@ -1255,12 +1261,17 @@ const Messages = () => {
                       {isActiveUserOnline && (
                         <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-green-500" />
                       )}
-                    </div>
+                    </Link>
 
                     <div className="min-w-0">
-                      <h3 className="truncate text-sm font-bold text-gray-900">
+                      {/* CLICK USERNAME TO OPEN USER PROFILE */}
+                      <Link
+                        to={`/profile/${activeUser._id}`}
+                        className="block truncate text-sm font-bold text-gray-900 transition hover:text-[#315efb]"
+                        title={`View ${activeUser.username}'s profile`}
+                      >
                         {activeUser.username}
-                      </h3>
+                      </Link>
 
                       <p
                         className={`mt-0.5 text-xs ${

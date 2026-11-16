@@ -24,6 +24,21 @@ const storySchema = new mongoose.Schema(
       required: true,
     },
 
+    viewers: [
+      {
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+          required: true,
+        },
+
+        viewedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+
     expiresAt: {
       type: Date,
       default: () => new Date(Date.now() + 24 * 60 * 60 * 1000),

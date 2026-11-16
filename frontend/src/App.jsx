@@ -6,7 +6,7 @@ import Signup from "./pages/Signup";
 import Profile from "./pages/Profile";
 import Notifications from "./pages/Notifications";
 import Messages from "./pages/Messages";
-
+import Search from "./pages/Search";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PublicRoute from "./components/PublicRoute";
 
@@ -21,6 +21,7 @@ const App = () => {
 
         <Route element={<ProtectedRoute />}>
           <Route path="/" element={<Home />} />
+          <Route path="/search" element={<Search />} />
           <Route path="/profile/:userId" element={<Profile />} />
           <Route path="/notifications" element={<Notifications />} />
           <Route path="/messages" element={<Messages />} />

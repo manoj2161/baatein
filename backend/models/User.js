@@ -13,6 +13,13 @@ const userSchema = new mongoose.Schema(
       match: /^[a-z0-9._]+$/,
     },
 
+    fullName: {
+      type: String,
+      trim: true,
+      maxlength: 50,
+      default: "",
+    },
+
     email: {
       type: String,
       required: true,
@@ -36,6 +43,14 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "",
       maxlength: 150,
+      trim: true,
+    },
+
+    status: {
+      type: String,
+      default: "",
+      maxlength: 60,
+      trim: true,
     },
 
     lastSeen: {
@@ -51,6 +66,14 @@ const userSchema = new mongoose.Schema(
     ],
 
     following: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+
+    // USERS BLOCKED BY THIS USER
+    blockedUsers: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
