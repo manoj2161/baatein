@@ -14,6 +14,9 @@ import {
   Check,
   X,
   MousePointer2,
+  Paperclip,
+  Image as ImageIcon,
+  Video,
 } from "lucide-react";
 
 import Sidebar from "../components/Sidebar";
@@ -33,6 +36,8 @@ import {
   deleteMessagesForMe,
   deleteMessagesForEveryone,
 } from "../services/messageService";
+
+const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
 const getOtherUser = (conversation, currentUserId) => {
   return conversation?.participants?.find(
@@ -81,6 +86,21 @@ const getSenderId = (message) => {
     : message.sender;
 };
 
+const getMessagePreview = (message) => {
+  if (!message) return "Start a conversation";
+
+  if (message.isDeletedForEveryone || message.deletedForEveryone) {
+    return "This message was deleted";
+  }
+
+  if (message.text?.trim()) return message.text;
+
+  if (message.mediaType === "image") return "Photo";
+  if (message.mediaType === "video") return "Video";
+
+  return "Start a conversation";
+};
+
 const Messages = () => {
   const { user, socket, onlineUsers } = useAuth();
 
@@ -90,6 +110,9 @@ const Messages = () => {
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [messageText, setMessageText] = useState("");
+
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [filePreview, setFilePreview] = useState("");
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
@@ -116,8 +139,8 @@ const Messages = () => {
   const typingTimeoutRef = useRef(null);
   const typingActiveRef = useRef(false);
   const messageInputRef = useRef(null);
+  const fileInputRef = useRef(null);
 
-  // Actual visible browser viewport.
   const [viewportHeight, setViewportHeight] = useState(
     window.visualViewport?.height || window.innerHeight,
   );
@@ -137,6 +160,7 @@ const Messages = () => {
     selectedMessages.every(
       (message) =>
         String(getSenderId(message)) === String(currentUserId) &&
+        !message.isDeletedForEveryone &&
         !message.deletedForEveryone,
     );
 
@@ -195,6 +219,21 @@ const Messages = () => {
     input.style.height = "auto";
     input.style.height = `${Math.min(input.scrollHeight, 120)}px`;
   }, [messageText]);
+
+  // CREATE AND CLEAN UP ATTACHMENT PREVIEW
+  useEffect(() => {
+    if (!selectedFile) {
+      setFilePreview("");
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(selectedFile);
+    setFilePreview(previewUrl);
+
+    return () => {
+      URL.revokeObjectURL(previewUrl);
+    };
+  }, [selectedFile]);
 
   const stopTyping = (conversationId) => {
     if (typingTimeoutRef.current) {
@@ -409,7 +448,7 @@ const Messages = () => {
         return;
       }
 
-      const deletedIds = new Set(data.messageIds.map(String));
+      const deletedIds = new Set((data.messageIds || []).map(String));
 
       setMessages((previous) =>
         previous.map((message) =>
@@ -419,6 +458,7 @@ const Messages = () => {
                 text: "",
                 mediaUrl: "",
                 mediaType: "none",
+                isDeletedForEveryone: true,
                 deletedForEveryone: true,
                 deletedAt: new Date().toISOString(),
               }
@@ -441,7 +481,7 @@ const Messages = () => {
         return;
       }
 
-      const deletedIds = new Set(data.messageIds.map(String));
+      const deletedIds = new Set((data.messageIds || []).map(String));
 
       setMessages((previous) =>
         previous.filter((message) => !deletedIds.has(String(message._id))),
@@ -460,7 +500,11 @@ const Messages = () => {
     socket.on("unreadCountUpdated", handleUnreadCountUpdated);
     socket.on("userTyping", handleUserTyping);
     socket.on("userStoppedTyping", handleUserStoppedTyping);
+
+    // Support both event names for compatibility.
     socket.on("messagesDeletedForEveryone", handleMessagesDeletedForEveryone);
+    socket.on("messagesDeleted", handleMessagesDeletedForEveryone);
+
     socket.on("messagesHiddenForMe", handleMessagesHiddenForMe);
 
     return () => {
@@ -469,10 +513,13 @@ const Messages = () => {
       socket.off("unreadCountUpdated", handleUnreadCountUpdated);
       socket.off("userTyping", handleUserTyping);
       socket.off("userStoppedTyping", handleUserStoppedTyping);
+
       socket.off(
         "messagesDeletedForEveryone",
         handleMessagesDeletedForEveryone,
       );
+      socket.off("messagesDeleted", handleMessagesDeletedForEveryone);
+
       socket.off("messagesHiddenForMe", handleMessagesHiddenForMe);
 
       socketRef.current = null;
@@ -584,6 +631,48 @@ const Messages = () => {
     };
   }, [searchQuery, currentUserId]);
 
+  // SELECT PHOTO OR VIDEO
+  const handleFileSelection = (event) => {
+    const file = event.target.files?.[0];
+
+    // Allow selecting the same file again after removing it.
+    event.target.value = "";
+
+    if (!file) return;
+
+    const allowedTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/gif",
+      "video/mp4",
+      "video/webm",
+      "video/quicktime",
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      setError("Please select a supported image or video file.");
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      setError("The selected file must be smaller than 100 MB.");
+      return;
+    }
+
+    setError("");
+    setSelectedFile(file);
+  };
+
+  const removeSelectedFile = () => {
+    setSelectedFile(null);
+    setFilePreview("");
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   const handleStartConversation = async (otherUser) => {
     try {
       setError("");
@@ -635,6 +724,8 @@ const Messages = () => {
     setContextMenu(null);
     setError("");
     setOpenMenuId(null);
+    setSelectedFile(null);
+    setMessageText("");
   };
 
   const handleBackToConversations = () => {
@@ -645,6 +736,7 @@ const Messages = () => {
     setContextMenu(null);
     setIsOtherUserTyping(false);
     setMessageText("");
+    setSelectedFile(null);
   };
 
   const handleArchiveConversation = async (conversation) => {
@@ -838,6 +930,7 @@ const Messages = () => {
                   text: "",
                   mediaUrl: "",
                   mediaType: "none",
+                  isDeletedForEveryone: true,
                   deletedForEveryone: true,
                   deletedAt: new Date().toISOString(),
                 }
@@ -892,21 +985,26 @@ const Messages = () => {
     }
   };
 
-  // SEND MESSAGE
+  // SEND TEXT MESSAGE OR ATTACHMENT
   const handleSendMessage = async (event) => {
     event.preventDefault();
 
     const text = messageText.trim();
+    const file = selectedFile;
 
-    if (!text || !selectedConversation || sending) return;
+    if ((!text && !file) || !selectedConversation || sending) return;
 
     stopTyping(selectedConversation._id);
 
     setSending(true);
-    setMessageText("");
+    setError("");
 
     try {
-      const newMessage = await sendMessage(selectedConversation._id, text);
+      const newMessage = await sendMessage(
+        selectedConversation._id,
+        text,
+        file,
+      );
 
       setMessages((previous) => {
         const exists = previous.some(
@@ -915,7 +1013,9 @@ const Messages = () => {
 
         if (exists) return previous;
 
-        return [...previous, newMessage];
+        return [...previous, newMessage].sort(
+          (a, b) => new Date(a.createdAt) - new Date(b.createdAt),
+        );
       });
 
       setConversations((previous) => {
@@ -935,10 +1035,17 @@ const Messages = () => {
           (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt),
         );
       });
+
+      setMessageText("");
+      setSelectedFile(null);
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     } catch (error) {
       console.error("Send message error:", error);
-      setMessageText(text);
-      setError("Message could not be sent.");
+
+      setError(error.response?.data?.message || "Message could not be sent.");
     } finally {
       setSending(false);
     }
@@ -962,7 +1069,6 @@ const Messages = () => {
         height: `${viewportHeight}px`,
       }}
     >
-      {/* Hide global mobile navigation when a chat is open. */}
       <div className={selectedConversation ? "hidden md:block" : "block"}>
         <Sidebar />
       </div>
@@ -989,9 +1095,13 @@ const Messages = () => {
           </div>
 
           {error && (
-            <div className="mb-2 flex shrink-0 items-center justify-between rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
-              <span>{error}</span>
-              <button onClick={() => setError("")} title="Dismiss">
+            <div className="mb-2 flex shrink-0 items-center justify-between gap-3 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
+              <span className="break-words">{error}</span>
+              <button
+                onClick={() => setError("")}
+                title="Dismiss"
+                className="shrink-0"
+              >
                 <X size={16} />
               </button>
             </div>
@@ -1206,10 +1316,7 @@ const Messages = () => {
                                   : "text-gray-500"
                               }`}
                             >
-                              {conversation.lastMessage?.deletedForEveryone
-                                ? "This message was deleted"
-                                : conversation.lastMessage?.text ||
-                                  "Start a conversation"}
+                              {getMessagePreview(conversation.lastMessage)}
                             </p>
                           </div>
                         </button>
@@ -1430,7 +1537,9 @@ const Messages = () => {
                             String(message._id),
                           );
 
-                          const isDeleted = message.deletedForEveryone;
+                          const isDeleted =
+                            message.isDeletedForEveryone ||
+                            message.deletedForEveryone;
 
                           return (
                             <div
@@ -1450,7 +1559,7 @@ const Messages = () => {
                                 }`}
                               >
                                 <div
-                                  className={`rounded-[22px] px-4 py-3 shadow-[0_2px_8px_rgba(15,23,42,0.06)] sm:px-5 ${
+                                  className={`overflow-hidden rounded-[22px] px-3 py-3 shadow-[0_2px_8px_rgba(15,23,42,0.06)] sm:px-4 ${
                                     isDeleted
                                       ? "border border-gray-200 bg-gray-100 text-gray-500"
                                       : isMine
@@ -1459,18 +1568,56 @@ const Messages = () => {
                                   }`}
                                 >
                                   {isDeleted ? (
-                                    <p className="flex items-center gap-2 text-[13px] italic">
+                                    <p className="flex items-center gap-2 px-1 text-[13px] italic">
                                       <Trash2 size={13} />
                                       This message was deleted
                                     </p>
                                   ) : (
-                                    <p className="whitespace-pre-wrap break-words text-[14px] leading-[1.55]">
-                                      {message.text}
-                                    </p>
+                                    <>
+                                      {message.mediaType === "image" &&
+                                        message.mediaUrl && (
+                                          <a
+                                            href={message.mediaUrl}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="mb-2 block overflow-hidden rounded-xl"
+                                            onClick={(event) =>
+                                              event.stopPropagation()
+                                            }
+                                          >
+                                            <img
+                                              src={message.mediaUrl}
+                                              alt="Message attachment"
+                                              loading="lazy"
+                                              className="max-h-[360px] w-full max-w-[320px] rounded-xl object-cover"
+                                            />
+                                          </a>
+                                        )}
+
+                                      {message.mediaType === "video" &&
+                                        message.mediaUrl && (
+                                          <video
+                                            src={message.mediaUrl}
+                                            controls
+                                            playsInline
+                                            preload="metadata"
+                                            className="mb-2 max-h-[360px] w-full max-w-[320px] rounded-xl bg-black"
+                                          >
+                                            Your browser does not support video
+                                            playback.
+                                          </video>
+                                        )}
+
+                                      {message.text && (
+                                        <p className="whitespace-pre-wrap break-words px-1 text-[14px] leading-[1.55]">
+                                          {message.text}
+                                        </p>
+                                      )}
+                                    </>
                                   )}
 
                                   <div
-                                    className={`mt-2 flex items-center justify-end gap-1.5 ${
+                                    className={`mt-2 flex items-center justify-end gap-1.5 px-1 ${
                                       isDeleted
                                         ? "text-gray-400"
                                         : isMine
@@ -1574,11 +1721,71 @@ const Messages = () => {
                     <div ref={messagesEndRef} />
                   </div>
 
+                  {/* ATTACHMENT PREVIEW */}
+                  {selectedFile && filePreview && (
+                    <div className="flex shrink-0 items-center gap-3 border-t border-gray-100 bg-white px-3 py-3 sm:px-5">
+                      <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+                        {selectedFile.type.startsWith("image/") ? (
+                          <img
+                            src={filePreview}
+                            alt="Selected attachment"
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex flex-col items-center gap-1 text-[#315efb]">
+                            <Video size={25} />
+                            <span className="text-[9px] font-semibold">
+                              VIDEO
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-gray-800">
+                          {selectedFile.name}
+                        </p>
+                        <p className="mt-1 text-xs text-gray-400">
+                          {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={removeSelectedFile}
+                        disabled={sending}
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-600 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                        title="Remove attachment"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+                  )}
+
                   {/* MESSAGE INPUT */}
                   <form
                     onSubmit={handleSendMessage}
                     className="flex shrink-0 items-end gap-2 border-t border-gray-100 bg-white px-3 py-2 pb-[calc(8px+env(safe-area-inset-bottom))] sm:gap-3 sm:px-4 sm:py-3 md:px-6 md:pb-4"
                   >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime"
+                      onChange={handleFileSelection}
+                      className="hidden"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={sending || Boolean(selectedFile)}
+                      className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-gray-50 text-gray-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-[#315efb] disabled:cursor-not-allowed disabled:opacity-40 sm:h-12 sm:w-12"
+                      title="Attach photo or video"
+                      aria-label="Attach photo or video"
+                    >
+                      <Paperclip size={20} />
+                    </button>
+
                     <textarea
                       ref={messageInputRef}
                       rows={1}
@@ -1605,8 +1812,11 @@ const Messages = () => {
 
                     <button
                       type="submit"
-                      disabled={!messageText.trim() || sending}
+                      disabled={
+                        (!messageText.trim() && !selectedFile) || sending
+                      }
                       className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#315efb] text-white shadow-sm transition hover:bg-blue-700 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50 sm:h-12 sm:w-12"
+                      title="Send message"
                     >
                       {sending ? (
                         <LoaderCircle size={19} className="animate-spin" />

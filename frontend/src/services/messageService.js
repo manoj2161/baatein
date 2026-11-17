@@ -30,11 +30,6 @@ export const deleteConversation = async (conversationId) => {
   return response.data;
 };
 
-// Delete selected messages from the current user's chat only.
-// Delete selected messages for everyone.
-// The backend verifies that the current user sent every selected message.
-
-
 // Create or get a conversation.
 export const createConversation = async (userId) => {
   const response = await api.post("/messages/conversation", { userId });
@@ -47,9 +42,21 @@ export const getMessages = async (conversationId) => {
   return response.data.messages || [];
 };
 
-// Send a message.
-export const sendMessage = async (conversationId, text) => {
+// Send a text message or a message with an attachment.
+export const sendMessage = async (conversationId, text, file = null) => {
+  if (file) {
+    const formData = new FormData();
+
+    formData.append("text", text || "");
+    formData.append("media", file);
+
+    const response = await api.post(`/messages/${conversationId}`, formData);
+
+    return response.data.newMessage;
+  }
+
   const response = await api.post(`/messages/${conversationId}`, { text });
+
   return response.data.newMessage;
 };
 
@@ -71,6 +78,7 @@ export const searchUsers = async (query) => {
 
   return response.data.users || response.data.results || [];
 };
+
 // Delete selected messages for everyone.
 export const deleteMessagesForEveryone = async (conversationId, messageIds) => {
   const response = await api.delete(

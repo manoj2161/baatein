@@ -3,6 +3,30 @@ import mongoose from "mongoose";
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
 import User from "../models/User.js";
+import cloudinary from "../config/cloudinary.js";
+
+// UPLOAD MESSAGE MEDIA TO CLOUDINARY
+const uploadMessageMedia = (file) => {
+  return new Promise((resolve, reject) => {
+    const resourceType = file.mimetype.startsWith("video/") ? "video" : "image";
+
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: "baatein/messages",
+        resource_type: resourceType,
+      },
+      (error, result) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(result);
+        }
+      },
+    );
+
+    stream.end(file.buffer);
+  });
+};
 
 // CHECK WHETHER EITHER USER HAS BLOCKED THE OTHER
 const isBlockedBetweenUsers = async (userId1, userId2) => {
@@ -36,7 +60,7 @@ const getOtherParticipantId = (conversation, currentUserId) => {
 // CREATE OR GET CONVERSATION
 export const createConversation = async (req, res) => {
   try {
-    const { userId } = req.body;
+    const { userId } = req.body || {};
     const currentUserId = req.user._id;
 
     if (
@@ -138,7 +162,6 @@ export const getConversations = async (req, res) => {
 
         let conversationData = conversation.toObject();
 
-        // Hide the last message preview while either user has blocked the other.
         if (blocked) {
           conversationData.lastMessage = null;
         } else if (
@@ -237,7 +260,7 @@ export const getArchivedConversations = async (req, res) => {
     console.error("Get archived conversations error:", error);
 
     return res.status(500).json({
-      message: "Unable to load archived conversations",
+      message: "Unable to load conversations",
     });
   }
 };
@@ -257,9 +280,7 @@ export const archiveConversation = async (req, res) => {
           archivedBy: userId,
         },
       },
-      {
-        new: true,
-      },
+      { new: true },
     );
 
     if (!conversation) {
@@ -296,9 +317,7 @@ export const unarchiveConversation = async (req, res) => {
           deletedBy: userId,
         },
       },
-      {
-        new: true,
-      },
+      { new: true },
     );
 
     if (!conversation) {
@@ -337,9 +356,7 @@ export const deleteConversation = async (req, res) => {
           archivedBy: userId,
         },
       },
-      {
-        new: true,
-      },
+      { new: true },
     );
 
     if (!conversation) {
@@ -384,7 +401,6 @@ export const getMessages = async (req, res) => {
     }
 
     const otherUserId = getOtherParticipantId(conversation, userId);
-
     const blocked = await isBlockedBetweenUsers(userId, otherUserId);
 
     if (blocked) {
@@ -415,22 +431,24 @@ export const getMessages = async (req, res) => {
   }
 };
 
-// SEND MESSAGE
+// SEND TEXT, IMAGE, OR VIDEO MESSAGE
 export const sendMessage = async (req, res) => {
   try {
-    const { text } = req.body;
+    const text = req.body?.text?.trim() || "";
+    const file = req.file;
+
     const currentUserId = req.user._id;
     const { conversationId } = req.params;
-
-    if (!text || !text.trim()) {
-      return res.status(400).json({
-        message: "Message cannot be empty",
-      });
-    }
 
     if (!mongoose.Types.ObjectId.isValid(conversationId)) {
       return res.status(400).json({
         message: "Invalid conversation ID",
+      });
+    }
+
+    if (!text && !file) {
+      return res.status(400).json({
+        message: "Please enter a message or select a photo/video.",
       });
     }
 
@@ -455,15 +473,27 @@ export const sendMessage = async (req, res) => {
       });
     }
 
+    let mediaUrl = "";
+    let mediaType = "none";
+
+    if (file) {
+      const uploadedMedia = await uploadMessageMedia(file);
+
+      mediaUrl = uploadedMedia.secure_url;
+      mediaType = file.mimetype.startsWith("video/") ? "video" : "image";
+    }
+
     const newMessage = await Message.create({
       conversation: conversation._id,
       sender: currentUserId,
-      text: text.trim(),
+      text,
+      mediaUrl,
+      mediaType,
     });
 
     conversation.lastMessage = newMessage._id;
 
-    // Restore the conversation for the sender only.
+    // Restore the conversation in the sender's inbox.
     conversation.archivedBy = conversation.archivedBy.filter(
       (id) => id.toString() !== currentUserId.toString(),
     );
@@ -485,7 +515,7 @@ export const sendMessage = async (req, res) => {
     }
 
     return res.status(201).json({
-      message: "Message sent",
+      message: "Message sent successfully",
       newMessage,
     });
   } catch (error) {
@@ -501,7 +531,7 @@ export const sendMessage = async (req, res) => {
 export const deleteMessagesForEveryone = async (req, res) => {
   try {
     const { conversationId } = req.params;
-    const { messageIds } = req.body;
+    const { messageIds } = req.body || {};
     const userId = req.user._id;
 
     if (
@@ -525,7 +555,6 @@ export const deleteMessagesForEveryone = async (req, res) => {
       });
     }
 
-    // Only allow deleting messages sent by the current user.
     const messages = await Message.find({
       _id: { $in: messageIds },
       conversation: conversationId,
@@ -591,7 +620,7 @@ export const deleteMessagesForEveryone = async (req, res) => {
 export const deleteMessagesForMe = async (req, res) => {
   try {
     const { conversationId } = req.params;
-    const { messageIds } = req.body;
+    const { messageIds } = req.body || {};
     const userId = req.user._id;
 
     if (
@@ -675,7 +704,6 @@ export const markMessagesAsRead = async (req, res) => {
     }
 
     const otherUserId = getOtherParticipantId(conversation, userId);
-
     const blocked = await isBlockedBetweenUsers(userId, otherUserId);
 
     if (blocked) {
