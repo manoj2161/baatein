@@ -115,6 +115,16 @@ const Messages = () => {
   const activeConversationRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const typingActiveRef = useRef(false);
+  const messageInputRef = useRef(null);
+
+  // Actual visible browser viewport.
+  const [viewportHeight, setViewportHeight] = useState(
+    window.visualViewport?.height || window.innerHeight,
+  );
+
+  const [viewportOffsetTop, setViewportOffsetTop] = useState(
+    window.visualViewport?.offsetTop || 0,
+  );
 
   const currentUserId = user?._id;
 
@@ -129,6 +139,28 @@ const Messages = () => {
         String(getSenderId(message)) === String(currentUserId) &&
         !message.deletedForEveryone,
     );
+
+  // MOBILE VIEWPORT HEIGHT
+  useEffect(() => {
+    const updateViewport = () => {
+      const viewport = window.visualViewport;
+
+      setViewportHeight(viewport?.height || window.innerHeight);
+      setViewportOffsetTop(viewport?.offsetTop || 0);
+    };
+
+    updateViewport();
+
+    window.visualViewport?.addEventListener("resize", updateViewport);
+    window.visualViewport?.addEventListener("scroll", updateViewport);
+    window.addEventListener("resize", updateViewport);
+
+    return () => {
+      window.visualViewport?.removeEventListener("resize", updateViewport);
+      window.visualViewport?.removeEventListener("scroll", updateViewport);
+      window.removeEventListener("resize", updateViewport);
+    };
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -153,6 +185,16 @@ const Messages = () => {
       window.removeEventListener("scroll", closeMenu, true);
     };
   }, []);
+
+  // RESIZE MESSAGE INPUT
+  useEffect(() => {
+    const input = messageInputRef.current;
+
+    if (!input) return;
+
+    input.style.height = "auto";
+    input.style.height = `${Math.min(input.scrollHeight, 120)}px`;
+  }, [messageText]);
 
   const stopTyping = (conversationId) => {
     if (typingTimeoutRef.current) {
@@ -507,6 +549,7 @@ const Messages = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({
       behavior: "smooth",
+      block: "end",
     });
   }, [messages, isOtherUserTyping]);
 
@@ -592,14 +635,6 @@ const Messages = () => {
     setContextMenu(null);
     setError("");
     setOpenMenuId(null);
-
-    setConversations((previous) =>
-      previous.map((item) =>
-        String(item._id) === String(conversation._id)
-          ? { ...item, unreadCount: 0 }
-          : item,
-      ),
-    );
   };
 
   const handleBackToConversations = () => {
@@ -920,15 +955,21 @@ const Messages = () => {
     : conversations;
 
   return (
-    <div className="h-dvh overflow-hidden bg-[#f7f8fc] text-[#171717]">
-      {/* Hide the global mobile header and bottom navigation inside an open chat. */}
+    <div
+      className="fixed inset-x-0 z-0 overflow-hidden bg-[#f7f8fc] text-[#171717]"
+      style={{
+        top: `${viewportOffsetTop}px`,
+        height: `${viewportHeight}px`,
+      }}
+    >
+      {/* Hide global mobile navigation when a chat is open. */}
       <div className={selectedConversation ? "hidden md:block" : "block"}>
         <Sidebar />
       </div>
 
       <main
         className={`overflow-hidden md:ml-[240px] md:h-screen ${
-          selectedConversation ? "h-dvh pt-0" : "h-[calc(100dvh-120px)] pt-0"
+          selectedConversation ? "h-full pt-0" : "h-[calc(100dvh-120px)] pt-0"
         }`}
       >
         <div
@@ -1536,21 +1577,36 @@ const Messages = () => {
                   {/* MESSAGE INPUT */}
                   <form
                     onSubmit={handleSendMessage}
-                    className="flex shrink-0 items-center gap-2 border-t border-gray-100 bg-white px-3 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:gap-3 sm:px-4 sm:py-4 md:px-6 md:pb-4"
+                    className="flex shrink-0 items-end gap-2 border-t border-gray-100 bg-white px-3 py-2 pb-[calc(8px+env(safe-area-inset-bottom))] sm:gap-3 sm:px-4 sm:py-3 md:px-6 md:pb-4"
                   >
-                    <input
-                      type="text"
+                    <textarea
+                      ref={messageInputRef}
+                      rows={1}
                       value={messageText}
                       onChange={handleMessageChange}
+                      onFocus={() => {
+                        requestAnimationFrame(() => {
+                          messageInputRef.current?.scrollIntoView({
+                            block: "nearest",
+                            behavior: "auto",
+                          });
+                        });
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" && !event.shiftKey) {
+                          event.preventDefault();
+                          event.currentTarget.closest("form")?.requestSubmit();
+                        }
+                      }}
                       placeholder="Write a message..."
                       maxLength={5000}
-                      className="min-w-0 flex-1 rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none transition placeholder:text-gray-400 focus:border-[#315efb] focus:bg-white focus:ring-4 focus:ring-blue-50 sm:px-5 sm:py-3.5"
+                      className="max-h-[120px] min-h-[44px] min-w-0 flex-1 resize-none overflow-y-auto rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-base leading-5 outline-none transition placeholder:text-gray-400 focus:border-[#315efb] focus:bg-white focus:ring-2 focus:ring-blue-50 sm:px-5"
                     />
 
                     <button
                       type="submit"
                       disabled={!messageText.trim() || sending}
-                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#315efb] text-white shadow-sm transition hover:bg-blue-700 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50 sm:h-12 sm:w-12"
+                      className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#315efb] text-white shadow-sm transition hover:bg-blue-700 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50 sm:h-12 sm:w-12"
                     >
                       {sending ? (
                         <LoaderCircle size={19} className="animate-spin" />

@@ -175,18 +175,20 @@ export default function StoryViewer({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black sm:bg-black/95 sm:p-4">
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label="Close story"
-        className="absolute right-3 top-3 z-[120] rounded-full bg-black/50 p-2.5 text-white transition hover:bg-white/20 sm:right-5 sm:top-5"
-      >
-        <X size={24} />
-      </button>
-
+      {/* Story Container */}
       <div className="relative flex h-dvh w-full max-w-[430px] flex-col overflow-hidden bg-black sm:h-[85vh] sm:rounded-xl">
-        {/* Progress bars */}
-        <div className="absolute left-3 right-3 top-3 z-20 flex gap-1">
+        {/* Close Button - Top Right */}
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close story"
+          className="absolute right-3 top-4 z-[120] rounded-full bg-black/60 p-2.5 text-white transition hover:bg-white/20 sm:right-4 sm:top-4"
+        >
+          <X size={23} />
+        </button>
+
+        {/* Progress Bars */}
+        <div className="absolute left-3 right-14 top-3 z-20 flex gap-1">
           {stories.map((item, i) => (
             <div
               key={item._id}
@@ -201,68 +203,41 @@ export default function StoryViewer({
           ))}
         </div>
 
-        {/* User information */}
-        <div className="absolute left-3 right-3 top-7 z-20 flex items-center justify-between sm:left-4 sm:right-4">
-          <div className="flex min-w-0 items-center gap-2">
-            <img
-              src={owner.profilePicture || "https://placehold.co/40x40?text=U"}
-              alt={owner.username || "User"}
-              className="h-9 w-9 shrink-0 rounded-full border border-white object-cover"
+        {/* User Information */}
+        <div className="absolute left-3 right-14 top-7 z-20 flex items-center gap-2 sm:left-4">
+          <img
+            src={owner.profilePicture || "https://placehold.co/40x40?text=U"}
+            alt={owner.username || "User"}
+            className="h-9 w-9 shrink-0 rounded-full border border-white object-cover"
+          />
+
+          <span className="truncate text-sm font-semibold text-white">
+            {owner.username || "User"}
+          </span>
+        </div>
+
+        {/* Story Media */}
+        <div className="flex h-full w-full items-center justify-center">
+          {story.mediaType === "video" ? (
+            <video
+              key={story._id}
+              src={story.mediaUrl}
+              autoPlay
+              muted
+              playsInline
+              className="h-full w-full object-contain"
             />
-
-            <span className="truncate text-sm font-semibold text-white">
-              {owner.username || "User"}
-            </span>
-          </div>
-
-          {isOwner && (
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleGetViewers}
-                className="flex items-center gap-1.5 rounded-full bg-black/50 px-3 py-2 text-sm text-white transition hover:bg-white/20"
-              >
-                <Eye size={17} />
-                <span>{viewerCount}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={deleting}
-                aria-label="Delete story"
-                className="rounded-full bg-black/50 p-2 text-white transition hover:bg-red-500 disabled:opacity-50"
-              >
-                {deleting ? (
-                  <LoaderCircle size={18} className="animate-spin" />
-                ) : (
-                  <Trash2 size={18} />
-                )}
-              </button>
-            </div>
+          ) : (
+            <img
+              key={story._id}
+              src={story.mediaUrl}
+              alt="Story"
+              className="h-full w-full object-contain"
+            />
           )}
         </div>
 
-        {/* Story media */}
-        {story.mediaType === "video" ? (
-          <video
-            key={story._id}
-            src={story.mediaUrl}
-            autoPlay
-            muted
-            playsInline
-            className="h-full w-full object-contain"
-          />
-        ) : (
-          <img
-            key={story._id}
-            src={story.mediaUrl}
-            alt="Story"
-            className="h-full w-full object-contain"
-          />
-        )}
-
-        {/* Previous story */}
+        {/* Previous Story */}
         <button
           type="button"
           onClick={previous}
@@ -273,7 +248,7 @@ export default function StoryViewer({
           <ChevronLeft size={25} />
         </button>
 
-        {/* Next story */}
+        {/* Next Story */}
         <button
           type="button"
           onClick={next}
@@ -284,7 +259,34 @@ export default function StoryViewer({
           <ChevronRight size={25} />
         </button>
 
-        {/* Story viewer history */}
+        {/* Bottom Story Actions */}
+        {isOwner && !showViewers && (
+          <div className="absolute inset-x-0 bottom-0 z-30 flex items-center justify-between border-t border-white/10 bg-black/70 px-5 py-4 pb-[calc(16px+env(safe-area-inset-bottom))]">
+            <button
+              type="button"
+              onClick={handleGetViewers}
+              className="flex items-center gap-2 rounded-full bg-white/10 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-white/20"
+            >
+              <Eye size={19} />
+              <span>{viewerCount} views</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleting}
+              className="flex items-center gap-2 rounded-full bg-red-500/15 px-4 py-2.5 text-sm font-medium text-red-400 transition hover:bg-red-500/30 disabled:opacity-50"
+            >
+              {deleting ? (
+                <LoaderCircle size={18} className="animate-spin" />
+              ) : (
+                <Trash2 size={18} />
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* Story Viewer History */}
         {showViewers && isOwner && (
           <div className="absolute inset-x-0 bottom-0 z-40 max-h-[65%] overflow-hidden rounded-t-2xl bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-gray-100 px-4 py-4">

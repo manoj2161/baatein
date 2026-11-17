@@ -86,7 +86,7 @@ export default function StoriesBar() {
     setSelectedIndex(null);
   };
 
-  // Show the latest story for each user.
+  // Get the latest story for each user.
   const latestStories = Object.values(
     stories.reduce((groups, story) => {
       const userId = story.user?._id;
@@ -104,15 +104,14 @@ export default function StoriesBar() {
     }, {}),
   );
 
-  const myStories = latestStories.filter(
+  // Separate your story from other users' stories.
+  const myStory = latestStories.find(
     (story) => String(story.user?._id) === String(user?._id),
   );
 
   const otherStories = latestStories.filter(
     (story) => String(story.user?._id) !== String(user?._id),
   );
-
-  const orderedStories = [...myStories, ...otherStories];
 
   const openStory = (story) => {
     const index = stories.findIndex((item) => item._id === story._id);
@@ -122,8 +121,10 @@ export default function StoriesBar() {
     }
   };
 
-  const hasViewedStory = (story) => {
-    return Boolean(story.isViewed);
+  const handleMyProfileClick = () => {
+    if (myStory) {
+      openStory(myStory);
+    }
   };
 
   return (
@@ -142,43 +143,67 @@ export default function StoriesBar() {
 
         {/* Story list */}
         <div className="flex gap-4 overflow-x-auto overscroll-x-contain pb-2 scrollbar-hide sm:gap-5">
-          {/* Add story */}
-          <label className="flex w-[68px] min-w-[68px] shrink-0 cursor-pointer flex-col items-center gap-2">
-            <div className="relative h-[62px] w-[62px] rounded-full border-2 border-gray-200 p-[3px]">
-              <img
-                src={
-                  user?.profilePicture ||
-                  "https://placehold.co/150x150?text=You"
+          {/* Your single profile story icon */}
+          <div className="flex w-[68px] min-w-[68px] shrink-0 flex-col items-center gap-2">
+            <div
+              className={`relative h-[62px] w-[62px] rounded-full p-[2px] ${
+                myStory
+                  ? myStory.isViewed
+                    ? "bg-gray-300"
+                    : "bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600"
+                  : "bg-gray-200"
+              }`}
+            >
+              <button
+                type="button"
+                onClick={handleMyProfileClick}
+                disabled={!myStory}
+                aria-label={
+                  myStory ? "View your story" : "Your profile picture"
                 }
-                alt="Your profile"
-                className="h-full w-full rounded-full object-cover"
-              />
+                className="h-full w-full rounded-full bg-white p-[3px]"
+              >
+                <img
+                  src={
+                    user?.profilePicture ||
+                    "https://placehold.co/150x150?text=You"
+                  }
+                  alt="Your profile"
+                  className="h-full w-full rounded-full object-cover"
+                />
+              </button>
 
-              <span className="absolute bottom-0 right-0 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-[#315efb] text-white">
+              {/* Add another story */}
+              <label
+                className={`absolute bottom-0 right-0 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full border-2 border-white bg-[#315efb] text-white ${
+                  uploading ? "cursor-wait" : ""
+                }`}
+                title="Add another story"
+              >
                 {uploading ? (
                   <LoaderCircle size={13} className="animate-spin" />
                 ) : (
                   <Plus size={13} />
                 )}
-              </span>
+
+                <input
+                  type="file"
+                  accept="image/*,video/*"
+                  onChange={handleUpload}
+                  disabled={uploading}
+                  className="hidden"
+                />
+              </label>
             </div>
 
             <span className="max-w-[70px] truncate text-xs text-gray-600">
               {uploading ? "Uploading..." : "Your story"}
             </span>
+          </div>
 
-            <input
-              type="file"
-              accept="image/*,video/*"
-              onChange={handleUpload}
-              disabled={uploading}
-              className="hidden"
-            />
-          </label>
-
-          {/* Other stories */}
-          {orderedStories.map((story) => {
-            const isViewed = hasViewedStory(story);
+          {/* Other users' stories */}
+          {otherStories.map((story) => {
+            const isViewed = Boolean(story.isViewed);
 
             return (
               <button
@@ -208,9 +233,7 @@ export default function StoriesBar() {
                 </div>
 
                 <span className="max-w-[70px] truncate text-xs text-gray-600">
-                  {String(story.user?._id) === String(user?._id)
-                    ? "Your story"
-                    : story.user?.username || "User"}
+                  {story.user?.username || "User"}
                 </span>
               </button>
             );
