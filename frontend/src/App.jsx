@@ -11,6 +11,7 @@ import Unsent from "./pages/Unsent";
 import Create from "./pages/Create";
 import Settings from "./pages/Settings";
 import EmailVerification from "./pages/EmailVerification";
+import ExplorePeople from "./pages/ExplorePeople";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 import PublicRoute from "./components/PublicRoute";
@@ -32,6 +33,7 @@ const App = () => {
         <Route element={<ProtectedRoute />}>
           <Route path="/" element={<Home />} />
           <Route path="/search" element={<Search />} />
+          <Route path="/explore" element={<ExplorePeople />} />
           <Route path="/profile/:userId" element={<Profile />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/notifications" element={<Notifications />} />

@@ -238,7 +238,6 @@ const Unsent = () => {
       [messageId]: true,
     }));
 
-    // Do not fetch again if replies are already loaded.
     if (replies[messageId]) return;
 
     try {
@@ -521,7 +520,6 @@ const Unsent = () => {
               </div>
             ) : (
               <>
-                {/* Reply list */}
                 <div className="flex flex-col gap-3">
                   {(replies[message._id] || []).length === 0 ? (
                     <p className="rounded-xl bg-gray-50 px-4 py-5 text-center text-sm text-gray-400">
@@ -639,7 +637,8 @@ const Unsent = () => {
     <div className="min-h-screen bg-[#f7f8fc] text-[#171717]">
       <Sidebar />
 
-      <main className="min-h-screen px-4 pb-24 pt-6 md:ml-[240px] md:px-8 lg:mr-[320px]">
+      {/* Mobile top spacing increased from pt-6 to pt-20 */}
+      <main className="min-h-screen px-4 pb-24 pt-20 md:ml-[240px] md:px-8 md:pt-6 lg:mr-[320px]">
         <div className="mx-auto w-full max-w-[680px]">
           {/* Header */}
           <div className="mb-7">

@@ -602,6 +602,16 @@ const Messages = () => {
     );
   };
 
+  const handleBackToConversations = () => {
+    stopTyping(activeConversationRef.current);
+    activeConversationRef.current = null;
+    setSelectedConversation(null);
+    setSelectedMessageIds([]);
+    setContextMenu(null);
+    setIsOtherUserTyping(false);
+    setMessageText("");
+  };
+
   const handleArchiveConversation = async (conversation) => {
     try {
       setActionLoading(true);
@@ -910,12 +920,25 @@ const Messages = () => {
     : conversations;
 
   return (
-    <div className="min-h-screen bg-[#f7f8fc] text-[#171717]">
-      <Sidebar />
+    <div className="h-dvh overflow-hidden bg-[#f7f8fc] text-[#171717]">
+      {/* Hide the global mobile header and bottom navigation inside an open chat. */}
+      <div className={selectedConversation ? "hidden md:block" : "block"}>
+        <Sidebar />
+      </div>
 
-      <main className="min-h-screen md:ml-[240px]">
-        <div className="mx-auto flex h-screen max-w-[1400px] flex-col px-3 py-3 md:px-6 md:py-5">
-          <div className="mb-4">
+      <main
+        className={`overflow-hidden md:ml-[240px] md:h-screen ${
+          selectedConversation ? "h-dvh pt-0" : "h-[calc(100dvh-120px)] pt-0"
+        }`}
+      >
+        <div
+          className={`mx-auto flex h-full max-w-[1400px] flex-col ${
+            selectedConversation
+              ? "px-0 py-0 md:px-6 md:py-5"
+              : "px-2 py-2 sm:px-3 md:px-6 md:py-5"
+          }`}
+        >
+          <div className="mb-3 hidden shrink-0 md:block">
             <h1 className="text-2xl font-bold tracking-tight text-gray-900">
               Messages
             </h1>
@@ -925,7 +948,7 @@ const Messages = () => {
           </div>
 
           {error && (
-            <div className="mb-3 flex items-center justify-between rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
+            <div className="mb-2 flex shrink-0 items-center justify-between rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
               <span>{error}</span>
               <button onClick={() => setError("")} title="Dismiss">
                 <X size={16} />
@@ -933,14 +956,20 @@ const Messages = () => {
             </div>
           )}
 
-          <div className="grid min-h-0 flex-1 overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-[0_4px_24px_rgba(15,23,42,0.04)] md:grid-cols-[320px_1fr] lg:grid-cols-[350px_1fr]">
+          <div
+            className={`grid min-h-0 flex-1 grid-cols-1 overflow-hidden border border-gray-200/80 bg-white shadow-[0_4px_24px_rgba(15,23,42,0.04)] md:grid-cols-[320px_1fr] lg:grid-cols-[350px_1fr] ${
+              selectedConversation
+                ? "rounded-none md:rounded-2xl"
+                : "rounded-xl md:rounded-2xl"
+            }`}
+          >
             {/* LEFT PANEL */}
             <section
               className={`min-h-0 flex-col border-r border-gray-100 ${
                 selectedConversation ? "hidden md:flex" : "flex"
               }`}
             >
-              <div className="border-b border-gray-100 p-4">
+              <div className="border-b border-gray-100 p-3 sm:p-4">
                 <div className="mb-4 flex items-center justify-between">
                   <h2 className="text-lg font-bold">
                     {showArchived ? "Archived" : "Chats"}
@@ -1012,7 +1041,7 @@ const Messages = () => {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
                 {showSearch && searchQuery.trim() ? (
                   <div>
                     <p className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
@@ -1219,29 +1248,23 @@ const Messages = () => {
 
             {/* RIGHT CHAT PANEL */}
             <section
-              className={`relative min-h-0 flex-col ${
+              className={`relative min-h-0 min-w-0 flex-col overflow-hidden ${
                 selectedConversation ? "flex" : "hidden md:flex"
               }`}
             >
               {selectedConversation && activeUser ? (
                 <>
                   {/* CHAT HEADER */}
-                  <div className="flex items-center gap-3 border-b border-gray-100 bg-white px-4 py-3.5 md:px-6">
+                  <div className="flex shrink-0 items-center gap-3 border-b border-gray-100 bg-white px-3 py-3 md:px-6 md:py-3.5">
                     <button
-                      onClick={() => {
-                        stopTyping(activeConversationRef.current);
-                        activeConversationRef.current = null;
-                        setSelectedConversation(null);
-                        setSelectedMessageIds([]);
-                        setContextMenu(null);
-                        setIsOtherUserTyping(false);
-                      }}
-                      className="rounded-full p-2 text-gray-500 hover:bg-gray-100 md:hidden"
+                      onClick={handleBackToConversations}
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-600 transition hover:bg-gray-100 hover:text-[#315efb] md:hidden"
+                      aria-label="Back to conversations"
+                      title="Back to conversations"
                     >
-                      <ArrowLeft size={20} />
+                      <ArrowLeft size={22} />
                     </button>
 
-                    {/* CLICK PROFILE PICTURE TO OPEN USER PROFILE */}
                     <Link
                       to={`/profile/${activeUser._id}`}
                       className="relative shrink-0"
@@ -1255,7 +1278,7 @@ const Messages = () => {
                           )}&background=e8edff&color=315efb`
                         }
                         alt={activeUser.username}
-                        className="h-11 w-11 rounded-full object-cover"
+                        className="h-10 w-10 rounded-full object-cover md:h-11 md:w-11"
                       />
 
                       {isActiveUserOnline && (
@@ -1264,7 +1287,6 @@ const Messages = () => {
                     </Link>
 
                     <div className="min-w-0">
-                      {/* CLICK USERNAME TO OPEN USER PROFILE */}
                       <Link
                         to={`/profile/${activeUser._id}`}
                         className="block truncate text-sm font-bold text-gray-900 transition hover:text-[#315efb]"
@@ -1291,7 +1313,7 @@ const Messages = () => {
 
                   {/* SELECTION TOOLBAR */}
                   {selectedMessageIds.length > 0 && (
-                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 bg-white px-4 py-3">
+                    <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-gray-100 bg-white px-3 py-3 sm:px-4">
                       <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
                         <Check size={17} className="text-[#315efb]" />
                         {selectedMessageIds.length} selected
@@ -1337,7 +1359,7 @@ const Messages = () => {
                   )}
 
                   {/* MESSAGES AREA */}
-                  <div className="relative flex-1 overflow-y-auto bg-[#f5f6fa] px-4 py-6 md:px-8">
+                  <div className="relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain bg-[#f5f6fa] px-3 py-4 sm:px-4 sm:py-6 md:px-8">
                     {messagesLoading ? (
                       <div className="flex justify-center py-10">
                         <LoaderCircle className="animate-spin text-[#315efb]" />
@@ -1380,7 +1402,7 @@ const Messages = () => {
                                 onContextMenu={(event) =>
                                   handleMessageContextMenu(event, message)
                                 }
-                                className={`group relative max-w-[82%] cursor-context-menu transition-all duration-150 sm:max-w-[75%] md:max-w-[68%] ${
+                                className={`group relative max-w-[88%] cursor-context-menu transition-all duration-150 sm:max-w-[75%] md:max-w-[68%] ${
                                   isSelected
                                     ? "rounded-[22px] ring-2 ring-[#315efb] ring-offset-2"
                                     : ""
@@ -1514,7 +1536,7 @@ const Messages = () => {
                   {/* MESSAGE INPUT */}
                   <form
                     onSubmit={handleSendMessage}
-                    className="flex items-center gap-3 border-t border-gray-100 bg-white px-4 py-4 md:px-6"
+                    className="flex shrink-0 items-center gap-2 border-t border-gray-100 bg-white px-3 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:gap-3 sm:px-4 sm:py-4 md:px-6 md:pb-4"
                   >
                     <input
                       type="text"
@@ -1522,13 +1544,13 @@ const Messages = () => {
                       onChange={handleMessageChange}
                       placeholder="Write a message..."
                       maxLength={5000}
-                      className="min-w-0 flex-1 rounded-full border border-gray-200 bg-gray-50 px-5 py-3.5 text-sm outline-none transition placeholder:text-gray-400 focus:border-[#315efb] focus:bg-white focus:ring-4 focus:ring-blue-50"
+                      className="min-w-0 flex-1 rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none transition placeholder:text-gray-400 focus:border-[#315efb] focus:bg-white focus:ring-4 focus:ring-blue-50 sm:px-5 sm:py-3.5"
                     />
 
                     <button
                       type="submit"
                       disabled={!messageText.trim() || sending}
-                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#315efb] text-white shadow-sm transition hover:bg-blue-700 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#315efb] text-white shadow-sm transition hover:bg-blue-700 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50 sm:h-12 sm:w-12"
                     >
                       {sending ? (
                         <LoaderCircle size={19} className="animate-spin" />
