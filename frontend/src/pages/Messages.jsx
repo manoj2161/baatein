@@ -1576,22 +1576,13 @@ const Messages = () => {
                                     <>
                                       {message.mediaType === "image" &&
                                         message.mediaUrl && (
-                                          <a
-                                            href={message.mediaUrl}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="mb-2 block overflow-hidden rounded-xl"
-                                            onClick={(event) =>
-                                              event.stopPropagation()
-                                            }
-                                          >
-                                            <img
-                                              src={message.mediaUrl}
-                                              alt="Message attachment"
-                                              loading="lazy"
-                                              className="max-h-[360px] w-full max-w-[320px] rounded-xl object-cover"
-                                            />
-                                          </a>
+                                          <img
+                                            src={message.mediaUrl}
+                                            alt="Message attachment"
+                                            loading="lazy"
+                                            draggable="false"
+                                            className="mb-2 max-h-[360px] w-full max-w-[320px] rounded-xl object-contain"
+                                          />
                                         )}
 
                                       {message.mediaType === "video" &&
