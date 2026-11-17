@@ -14,6 +14,35 @@ const allowedOrigins = [
   .filter(Boolean)
   .map((origin) => origin.trim().replace(/\/$/, ""));
 
+const getSocketToken = (socket) => {
+  // Expo/native clients can send the token through Socket.IO auth.
+  const authToken = socket.handshake.auth?.token;
+
+  if (authToken) {
+    return authToken;
+  }
+
+  // Also support an Authorization header if a client uses one.
+  const authorization = socket.handshake.headers.authorization || "";
+
+  if (authorization.startsWith("Bearer ")) {
+    return authorization.slice(7).trim();
+  }
+
+  // Existing browser clients continue using the token cookie.
+  const cookieHeader = socket.handshake.headers.cookie || "";
+  const tokenCookie = cookieHeader
+    .split(";")
+    .map((item) => item.trim())
+    .find((item) => item.startsWith("token="));
+
+  if (!tokenCookie) {
+    return null;
+  }
+
+  return decodeURIComponent(tokenCookie.substring("token=".length));
+};
+
 // CHECK WHETHER EITHER USER HAS BLOCKED THE OTHER
 const isBlockedBetweenUsers = async (userId1, userId2) => {
   const [user1, user2] = await Promise.all([
@@ -57,26 +86,22 @@ const initializeSocket = (httpServer) => {
   });
 
   // SOCKET AUTHENTICATION
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     try {
-      const cookieHeader = socket.handshake.headers.cookie || "";
+      const token = getSocketToken(socket);
 
-      const tokenCookie = cookieHeader
-        .split(";")
-        .map((item) => item.trim())
-        .find((item) => item.startsWith("token="));
-
-      if (!tokenCookie) {
-        console.log("Socket authentication failed: token cookie missing");
+      if (!token) {
         return next(new Error("Authentication required"));
       }
 
-      const token = decodeURIComponent(tokenCookie.substring("token=".length));
-
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const user = await User.findById(decoded.id).select("_id isDeleted");
 
-      socket.userId = decoded.id;
+      if (!user || user.isDeleted) {
+        return next(new Error("Invalid authentication"));
+      }
 
+      socket.userId = user._id.toString();
       next();
     } catch (error) {
       console.error("Socket authentication error:", error.message);
@@ -93,7 +118,6 @@ const initializeSocket = (httpServer) => {
 
     console.log("User connected to Socket.IO:", userId);
 
-    // BROADCAST CURRENT ONLINE USERS
     io.emit("onlineUsers", Array.from(onlineUsers.keys()));
 
     // TYPING INDICATOR

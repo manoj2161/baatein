@@ -1,9 +1,21 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
+const getRequestToken = (req) => {
+  // Native apps send: Authorization: Bearer <token>
+  const authorization = req.headers.authorization || "";
+
+  if (authorization.startsWith("Bearer ")) {
+    return authorization.slice(7).trim();
+  }
+
+  // Existing web app continues using the HTTP-only token cookie.
+  return req.cookies?.token || null;
+};
+
 const authMiddleware = async (req, res, next) => {
   try {
-    const token = req.cookies.token;
+    const token = getRequestToken(req);
 
     if (!token) {
       return res.status(401).json({
@@ -21,7 +33,6 @@ const authMiddleware = async (req, res, next) => {
       });
     }
 
-    // Prevent deleted accounts from using existing sessions.
     if (user.isDeleted) {
       res.clearCookie("token", {
         httpOnly: true,
@@ -35,7 +46,6 @@ const authMiddleware = async (req, res, next) => {
     }
 
     req.user = user;
-
     next();
   } catch (error) {
     return res.status(401).json({

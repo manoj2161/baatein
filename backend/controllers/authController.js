@@ -7,7 +7,7 @@ const generateToken = (userId) => {
   return jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: "7d" });
 };
 
-// Cookie settings
+// Cookie settings for the existing web app
 const cookieOptions = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
@@ -23,21 +23,21 @@ const getSafeUser = (user) => {
 };
 
 // REGISTER USER
-
+// Signup remains simple: username, email, and password.
+// No email verification is required; the user is logged in immediately.
 export const signup = async (req, res) => {
   try {
     let { username, email, password } = req.body;
 
     if (!username || !email || !password) {
       return res.status(400).json({
-        message: "All fields are required",
+        message: "Username, email, and password are required",
       });
     }
 
     username = username.trim().toLowerCase();
     email = email.trim().toLowerCase();
 
-    // Validate username
     const usernameRegex = /^[a-z0-9._]{3,30}$/;
 
     if (!usernameRegex.test(username)) {
@@ -53,7 +53,6 @@ export const signup = async (req, res) => {
       });
     }
 
-    // Check username and email
     const existingUsername = await User.findOne({ username });
 
     if (existingUsername) {
@@ -80,10 +79,13 @@ export const signup = async (req, res) => {
 
     const token = generateToken(newUser._id);
 
+    // Keep cookie authentication for the web app.
     res.cookie("token", token, cookieOptions);
 
+    // Also return the token for native clients such as the Expo Android app.
     return res.status(201).json({
       message: "Account created successfully",
+      token,
       user: getSafeUser(newUser),
     });
   } catch (error) {
@@ -111,25 +113,22 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Check required fields
     if (!email || !password) {
       return res.status(400).json({
         message: "Email and password are required",
       });
     }
 
-    // Find user
     const user = await User.findOne({
-      email: email.toLowerCase(),
+      email: email.trim().toLowerCase(),
     });
 
-    if (!user) {
+    if (!user || user.isDeleted) {
       return res.status(401).json({
         message: "Invalid email or password",
       });
     }
 
-    // Compare passwords
     const isPasswordCorrect = await bcrypt.compare(password, user.password);
 
     if (!isPasswordCorrect) {
@@ -138,14 +137,15 @@ export const login = async (req, res) => {
       });
     }
 
-    // Generate token
     const token = generateToken(user._id);
 
-    // Store token in cookie
+    // Keep cookie authentication for the web app.
     res.cookie("token", token, cookieOptions);
 
+    // Also return the token for native clients such as the Expo Android app.
     return res.status(200).json({
       message: "Login successful",
+      token,
       user: getSafeUser(user),
     });
   } catch (error) {
