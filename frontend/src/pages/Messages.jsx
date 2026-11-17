@@ -113,6 +113,7 @@ const Messages = () => {
 
   const [selectedFile, setSelectedFile] = useState(null);
   const [filePreview, setFilePreview] = useState("");
+  const [previewImage, setPreviewImage] = useState("");
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
@@ -150,6 +151,22 @@ const Messages = () => {
   );
 
   const currentUserId = user?._id;
+
+  useEffect(() => {
+    if (!previewImage) return;
+
+    const handleEscape = (event) => {
+      if (event.key === "Escape") setPreviewImage("");
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      window.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = "";
+    };
+  }, [previewImage]);
 
   const selectedMessages = messages.filter((message) =>
     selectedMessageIds.includes(String(message._id)),
@@ -1581,7 +1598,10 @@ const Messages = () => {
                                             alt="Message attachment"
                                             loading="lazy"
                                             draggable="false"
-                                            className="mb-2 max-h-[360px] w-full max-w-[320px] rounded-xl object-contain"
+                                            onClick={() =>
+                                              setPreviewImage(message.mediaUrl)
+                                            }
+                                            className="mb-2 max-h-[360px] w-full max-w-[320px] cursor-zoom-in rounded-xl object-contain"
                                           />
                                         )}
 
@@ -1844,6 +1864,33 @@ const Messages = () => {
           </div>
         </div>
       </main>
+
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-3 sm:p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Image preview"
+          onClick={() => setPreviewImage("")}
+        >
+          <button
+            type="button"
+            onClick={() => setPreviewImage("")}
+            className="absolute right-4 top-4 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white transition hover:bg-white/25"
+            aria-label="Close image preview"
+            title="Close"
+          >
+            <X size={24} />
+          </button>
+
+          <img
+            src={previewImage}
+            alt="Full-size message attachment"
+            onClick={(event) => event.stopPropagation()}
+            className="max-h-full max-w-full rounded-lg object-contain"
+          />
+        </div>
+      )}
     </div>
   );
 };
