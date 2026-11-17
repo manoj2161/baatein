@@ -5,6 +5,15 @@ import User from "../models/User.js";
 
 const onlineUsers = new Map();
 
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  process.env.CLIENT_URL,
+  process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
+]
+  .filter(Boolean)
+  .map((origin) => origin.trim().replace(/\/$/, ""));
+
 // CHECK WHETHER EITHER USER HAS BLOCKED THE OTHER
 const isBlockedBetweenUsers = async (userId1, userId2) => {
   const [user1, user2] = await Promise.all([
@@ -28,8 +37,22 @@ const isBlockedBetweenUsers = async (userId1, userId2) => {
 const initializeSocket = (httpServer) => {
   const io = new Server(httpServer, {
     cors: {
-      origin: process.env.CLIENT_URL,
+      origin: (origin, callback) => {
+        if (!origin) {
+          return callback(null, true);
+        }
+
+        const normalizedOrigin = origin.replace(/\/$/, "");
+
+        if (allowedOrigins.includes(normalizedOrigin)) {
+          return callback(null, true);
+        }
+
+        console.error("Socket.IO CORS blocked:", origin);
+        return callback(new Error("Not allowed by Socket.IO CORS"));
+      },
       credentials: true,
+      methods: ["GET", "POST"],
     },
   });
 
@@ -45,7 +68,6 @@ const initializeSocket = (httpServer) => {
 
       if (!tokenCookie) {
         console.log("Socket authentication failed: token cookie missing");
-
         return next(new Error("Authentication required"));
       }
 
@@ -58,7 +80,6 @@ const initializeSocket = (httpServer) => {
       next();
     } catch (error) {
       console.error("Socket authentication error:", error.message);
-
       next(new Error("Invalid authentication"));
     }
   });
@@ -93,7 +114,6 @@ const initializeSocket = (httpServer) => {
 
         if (!recipient) return;
 
-        // PREVENT TYPING EVENTS BETWEEN BLOCKED USERS
         const blocked = await isBlockedBetweenUsers(userId, recipient);
 
         if (blocked) return;
@@ -125,7 +145,6 @@ const initializeSocket = (httpServer) => {
 
         if (!recipient) return;
 
-        // PREVENT STOP-TYPING EVENTS BETWEEN BLOCKED USERS
         const blocked = await isBlockedBetweenUsers(userId, recipient);
 
         if (blocked) return;
@@ -153,7 +172,6 @@ const initializeSocket = (httpServer) => {
             lastSeen,
           });
 
-          // NOTIFY EVERYONE THAT THIS USER IS OFFLINE
           io.emit("userStatus", {
             userId: userId.toString(),
             isOnline: false,

@@ -26,10 +26,7 @@ dns.setServers(["8.8.8.8", "8.8.4.4"]);
 const app = express();
 const httpServer = createServer(app);
 
-// -----------------------------------------
 // CORS CONFIGURATION
-// -----------------------------------------
-
 const allowedOrigins = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
@@ -37,11 +34,10 @@ const allowedOrigins = [
   process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
 ]
   .filter(Boolean)
-  .map((origin) => origin.replace(/\/$/, ""));
+  .map((origin) => origin.trim().replace(/\/$/, ""));
 
 const corsOptions = {
   origin: (origin, callback) => {
-    // Allow requests without an Origin header, such as server-to-server calls.
     if (!origin) {
       return callback(null, true);
     }
@@ -53,39 +49,25 @@ const corsOptions = {
     }
 
     console.error("Blocked by CORS:", origin);
-
     return callback(new Error("Not allowed by CORS"));
   },
 
   credentials: true,
-
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-
   allowedHeaders: ["Content-Type", "Authorization"],
-
   optionsSuccessStatus: 204,
 };
 
-// -----------------------------------------
 // MIDDLEWARE
-// -----------------------------------------
-
 app.use(cors(corsOptions));
-
 app.use(express.json());
 app.use(cookieParser());
 
-// -----------------------------------------
 // SOCKET.IO
-// -----------------------------------------
-
 const io = initializeSocket(httpServer);
 app.set("io", io);
 
-// -----------------------------------------
 // API ROUTES
-// -----------------------------------------
-
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/users", followRoutes);
@@ -99,18 +81,12 @@ app.use("/api/reels", reelRoutes);
 // THE UNSENT
 app.use("/api/unsent", unsentRoutes);
 
-// -----------------------------------------
 // HEALTH CHECK
-// -----------------------------------------
-
 app.get("/", (req, res) => {
   res.send("Baatein API is running");
 });
 
-// -----------------------------------------
 // ERROR HANDLER
-// -----------------------------------------
-
 app.use((error, req, res, next) => {
   console.error(error);
 
@@ -125,10 +101,7 @@ app.use((error, req, res, next) => {
   });
 });
 
-// -----------------------------------------
 // START SERVER
-// -----------------------------------------
-
 const startServer = async () => {
   try {
     await connectDatabase();
