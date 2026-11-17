@@ -11,6 +11,7 @@ import {
 
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import logo from "../assets/logo.png";
 
 const desktopMenuItems = [
   { label: "Home", icon: House, path: "/" },
@@ -79,19 +80,24 @@ export default function Sidebar() {
     <>
       {/* DESKTOP AND TABLET SIDEBAR */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-[220px] flex-col border-r border-gray-200 bg-white px-3 py-6 md:flex lg:w-[240px] lg:px-4 lg:py-8">
-        <div
+        {/* Logo */}
+        <button
           onClick={() => navigate("/")}
-          className="mb-8 flex cursor-pointer items-center gap-3 px-3 lg:mb-10"
+          className="mb-8 flex cursor-pointer items-center gap-3 px-3 text-left lg:mb-10"
+          aria-label="Baatein home"
         >
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#315efb] text-xl font-bold text-white">
-            b
-          </div>
+          <img
+            src={logo}
+            alt="Baatein"
+            className="h-10 w-10 shrink-0 object-contain"
+          />
 
           <span className="text-2xl font-bold tracking-tight text-gray-900">
             baatein
           </span>
-        </div>
+        </button>
 
+        {/* Navigation */}
         <nav className="flex flex-1 flex-col gap-2 overflow-y-auto">
           {desktopMenuItems.map(({ label, icon: Icon, path }) => {
             const active = isActive(label, path);
@@ -121,6 +127,7 @@ export default function Sidebar() {
           })}
         </nav>
 
+        {/* Logout */}
         <button
           onClick={handleLogout}
           className="mt-4 flex shrink-0 items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-red-500 transition hover:bg-red-50 lg:gap-4 lg:px-4 lg:text-[15px]"
@@ -137,15 +144,14 @@ export default function Sidebar() {
           className="flex items-center gap-2"
           aria-label="Baatein home"
         >
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#315efb] text-lg font-bold text-white">
-            b
-          </div>
+          <img src={logo} alt="Baatein" className="h-9 w-9 object-contain" />
 
           <span className="text-xl font-bold tracking-tight text-gray-900">
             baatein
           </span>
         </button>
 
+        {/* Mobile Top Actions */}
         <div className="flex items-center gap-4">
           {mobileTopItems.map(({ label, icon: Icon, path }) => {
             const active = isActive(label, path);
@@ -202,7 +208,7 @@ export default function Sidebar() {
             <span className="text-[10px]">Unsent</span>
           </button>
 
-          {/* Create - Centre */}
+          {/* Create */}
           <button
             onClick={() => navigate("/create")}
             aria-label="Create"

@@ -12,6 +12,10 @@ import {
   getUsers,
   getUserById,
   getFollowList,
+  requestEmailChange,
+  verifyEmailChange,
+  updatePhoneNumber,
+  deleteAccount,
 } from "../controllers/userController.js";
 
 import {
@@ -22,9 +26,31 @@ import {
 
 const router = express.Router();
 
+// ---------------------------------------------
+// PUBLIC EMAIL VERIFICATION
+// Must be before authMiddleware.
+// ---------------------------------------------
+
+router.get("/settings/verify-email/:token", verifyEmailChange);
+
+// ---------------------------------------------
+// AUTHENTICATION REQUIRED
+// ---------------------------------------------
+
 router.use(authMiddleware);
 
+// SETTINGS
+
+router.post("/settings/email", requestEmailChange);
+
+router.put("/settings/phone", updatePhoneNumber);
+
+router.delete("/settings/account", deleteAccount);
+
+// ---------------------------------------------
 // PROFILE
+// ---------------------------------------------
+
 router.get("/profile", getProfile);
 
 router.get("/username-availability", checkUsernameAvailability);
@@ -39,21 +65,34 @@ router.post(
 
 router.delete("/profile/picture", removeProfilePicture);
 
+// ---------------------------------------------
 // BLOCK / UNBLOCK
+// ---------------------------------------------
+
 router.get("/blocked", getBlockedUsers);
 
 router.post("/:userId/block", blockUser);
 
 router.delete("/:userId/block", unblockUser);
 
+// ---------------------------------------------
 // USERS
+// ---------------------------------------------
+
 router.get("/", getUsers);
 
+// ---------------------------------------------
 // FOLLOWERS / FOLLOWING
+// ---------------------------------------------
+
 router.get("/:id/followers", getFollowList);
+
 router.get("/:id/following", getFollowList);
 
+// ---------------------------------------------
 // OTHER USER PROFILE
+// ---------------------------------------------
+
 router.get("/:id", getUserById);
 
 export default router;

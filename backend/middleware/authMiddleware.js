@@ -21,6 +21,19 @@ const authMiddleware = async (req, res, next) => {
       });
     }
 
+    // Prevent deleted accounts from using existing sessions.
+    if (user.isDeleted) {
+      res.clearCookie("token", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      });
+
+      return res.status(401).json({
+        message: "This account has been deleted.",
+      });
+    }
+
     req.user = user;
 
     next();

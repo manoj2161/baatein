@@ -34,6 +34,29 @@ const userSchema = new mongoose.Schema(
       minlength: 6,
     },
 
+    phoneNumber: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    pendingEmail: {
+      type: String,
+      lowercase: true,
+      trim: true,
+      default: null,
+    },
+
+    emailChangeTokenHash: {
+      type: String,
+      default: null,
+    },
+
+    emailChangeExpiresAt: {
+      type: Date,
+      default: null,
+    },
+
     profilePicture: {
       type: String,
       default: "",
@@ -54,6 +77,16 @@ const userSchema = new mongoose.Schema(
     },
 
     lastSeen: {
+      type: Date,
+      default: null,
+    },
+
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+
+    deletedAt: {
       type: Date,
       default: null,
     },

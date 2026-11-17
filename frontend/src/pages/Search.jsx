@@ -9,7 +9,6 @@ import {
   LoaderCircle,
   X,
   Ban,
-  ShieldCheck,
   Clock,
   Trash2,
 } from "lucide-react";
@@ -28,11 +27,9 @@ export default function Search() {
 
   const [query, setQuery] = useState("");
   const [users, setUsers] = useState([]);
-  const [blockedUsers, setBlockedUsers] = useState([]);
   const [searchHistory, setSearchHistory] = useState([]);
 
   const [loading, setLoading] = useState(false);
-  const [blockedLoading, setBlockedLoading] = useState(true);
   const [error, setError] = useState("");
 
   const [followLoading, setFollowLoading] = useState(null);
@@ -91,25 +88,6 @@ export default function Search() {
     setSearchHistory([]);
   };
 
-  // FETCH BLOCKED USERS
-  const fetchBlockedUsers = async () => {
-    try {
-      setBlockedLoading(true);
-
-      const response = await api.get("/users/blocked");
-
-      setBlockedUsers(response.data.users || []);
-    } catch (err) {
-      console.error("Fetch blocked users error:", err);
-    } finally {
-      setBlockedLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchBlockedUsers();
-  }, []);
-
   // SEARCH USERS
   useEffect(() => {
     let cancelled = false;
@@ -161,11 +139,6 @@ export default function Search() {
     };
   }, [query, user?._id]);
 
-  // CHECK BLOCK STATUS
-  const isBlocked = (userId) => {
-    return blockedUsers.some((item) => item._id === userId);
-  };
-
   // FOLLOW / UNFOLLOW
   const handleFollow = async (selectedUser) => {
     try {
@@ -208,7 +181,6 @@ export default function Search() {
       }
     } catch (err) {
       console.error("Follow action error:", err);
-
       alert(err.response?.data?.message || "Unable to update follow status.");
     } finally {
       setFollowLoading(null);
@@ -228,40 +200,15 @@ export default function Search() {
 
       await api.post(`/users/${selectedUser._id}/block`);
 
-      setBlockedUsers((previous) => {
-        const alreadyBlocked = previous.some(
-          (item) => item._id === selectedUser._id,
-        );
-
-        return alreadyBlocked ? previous : [...previous, selectedUser];
-      });
+      // Remove the blocked user from the current search results.
+      setUsers((previous) =>
+        previous.filter((item) => item._id !== selectedUser._id),
+      );
 
       alert(`@${selectedUser.username} has been blocked.`);
     } catch (err) {
       console.error("Block user error:", err);
-
       alert(err.response?.data?.message || "Unable to block user.");
-    } finally {
-      setBlockLoading(null);
-    }
-  };
-
-  // UNBLOCK USER
-  const handleUnblock = async (selectedUser) => {
-    try {
-      setBlockLoading(selectedUser._id);
-
-      await api.delete(`/users/${selectedUser._id}/block`);
-
-      setBlockedUsers((previous) =>
-        previous.filter((item) => item._id !== selectedUser._id),
-      );
-
-      alert(`@${selectedUser.username} has been unblocked.`);
-    } catch (err) {
-      console.error("Unblock user error:", err);
-
-      alert(err.response?.data?.message || "Unable to unblock user.");
     } finally {
       setBlockLoading(null);
     }
@@ -285,12 +232,10 @@ export default function Search() {
   };
 
   // USER CARD
-  const renderUser = (item, showBlockedList = false) => {
+  const renderUser = (item) => {
     const following =
       item.isFollowing === true ||
       item.followers?.some((id) => id.toString() === user?._id);
-
-    const blocked = isBlocked(item._id);
 
     return (
       <div
@@ -322,9 +267,7 @@ export default function Search() {
             <p className="truncate text-sm font-semibold text-gray-900 hover:underline">
               {item.fullName || item.username}
             </p>
-
             <p className="truncate text-sm text-gray-500">@{item.username}</p>
-
             {item.status && (
               <p className="mt-0.5 truncate text-xs text-gray-400">
                 {item.status}
@@ -334,71 +277,46 @@ export default function Search() {
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          {!showBlockedList && (
-            <>
-              <button
-                onClick={() => handleFollow(item)}
-                disabled={followLoading === item._id || blocked}
-                className={`flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${
-                  following
-                    ? "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-                    : "bg-[#315efb] text-white hover:bg-blue-700"
-                }`}
-              >
-                {followLoading === item._id ? (
-                  <LoaderCircle size={15} className="animate-spin" />
-                ) : following ? (
-                  <UserCheck size={15} />
-                ) : (
-                  <UserPlus size={15} />
-                )}
+          <button
+            onClick={() => handleFollow(item)}
+            disabled={followLoading === item._id}
+            className={`flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${
+              following
+                ? "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                : "bg-[#315efb] text-white hover:bg-blue-700"
+            }`}
+          >
+            {followLoading === item._id ? (
+              <LoaderCircle size={15} className="animate-spin" />
+            ) : following ? (
+              <UserCheck size={15} />
+            ) : (
+              <UserPlus size={15} />
+            )}
+            <span>{following ? "Following" : "Follow"}</span>
+          </button>
 
-                <span>{following ? "Following" : "Follow"}</span>
-              </button>
+          <button
+            onClick={() => openMessage(item)}
+            title="Message"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition hover:bg-gray-100"
+          >
+            <MessageCircle size={17} />
+          </button>
 
-              <button
-                onClick={() => openMessage(item)}
-                disabled={blocked}
-                title="Message"
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <MessageCircle size={17} />
-              </button>
-            </>
-          )}
-
-          {blocked ? (
-            <button
-              onClick={() => handleUnblock(item)}
-              disabled={blockLoading === item._id}
-              className="flex h-9 items-center gap-1.5 rounded-lg border border-green-200 bg-green-50 px-3 text-xs font-semibold text-green-700 transition hover:bg-green-100 disabled:opacity-50"
-            >
-              {blockLoading === item._id ? (
-                <LoaderCircle size={15} className="animate-spin" />
-              ) : (
-                <ShieldCheck size={15} />
-              )}
-
-              <span>Unblock</span>
-            </button>
-          ) : (
-            !showBlockedList && (
-              <button
-                onClick={() => handleBlock(item)}
-                disabled={blockLoading === item._id}
-                title="Block user"
-                className="flex h-9 items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
-              >
-                {blockLoading === item._id ? (
-                  <LoaderCircle size={15} className="animate-spin" />
-                ) : (
-                  <Ban size={15} />
-                )}
-
-                <span>Block</span>
-              </button>
-            )
-          )}
+          <button
+            onClick={() => handleBlock(item)}
+            disabled={blockLoading === item._id}
+            title="Block user"
+            className="flex h-9 items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+          >
+            {blockLoading === item._id ? (
+              <LoaderCircle size={15} className="animate-spin" />
+            ) : (
+              <Ban size={15} />
+            )}
+            <span>Block</span>
+          </button>
         </div>
       </div>
     );
@@ -427,12 +345,10 @@ export default function Search() {
             </div>
           )}
         </div>
-
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-gray-900">
             {item.fullName || item.username}
           </p>
-
           <p className="truncate text-xs text-gray-500">@{item.username}</p>
         </div>
       </button>
@@ -486,7 +402,6 @@ export default function Search() {
               <div className="mb-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Clock size={17} className="text-gray-500" />
-
                   <h2 className="text-sm font-semibold text-gray-800">
                     Recent searches
                   </h2>
@@ -562,42 +477,6 @@ export default function Search() {
               </p>
             </div>
           )}
-
-          {/* BLOCKED USERS SECTION */}
-          <div className="mt-12 border-t border-gray-200 pt-8">
-            <h2 className="mb-2 text-lg font-bold text-gray-900">
-              Blocked people
-            </h2>
-
-            <p className="mb-5 text-sm text-gray-500">
-              People you have blocked cannot follow or message you.
-            </p>
-
-            {blockedLoading ? (
-              <div className="flex justify-center py-8">
-                <LoaderCircle
-                  size={24}
-                  className="animate-spin text-[#315efb]"
-                />
-              </div>
-            ) : blockedUsers.length > 0 ? (
-              <div className="space-y-3">
-                {blockedUsers.map((item) => renderUser(item, true))}
-              </div>
-            ) : (
-              <div className="rounded-xl border border-gray-100 bg-white py-8 text-center">
-                <ShieldCheck size={30} className="mx-auto mb-3 text-gray-300" />
-
-                <p className="text-sm font-medium text-gray-700">
-                  No blocked users
-                </p>
-
-                <p className="mt-1 text-xs text-gray-400">
-                  Users you block will appear here.
-                </p>
-              </div>
-            )}
-          </div>
         </div>
       </main>
     </div>

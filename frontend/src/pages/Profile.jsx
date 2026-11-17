@@ -8,12 +8,17 @@ import {
   ArrowLeft,
   ImagePlus,
   X,
+  MoreVertical,
+  Ban,
+  ShieldCheck,
 } from "lucide-react";
 
 import Sidebar from "../components/Sidebar";
 import RightPanel from "../components/RightPanel";
 import FeedPost from "../components/FeedPost";
 import { useAuth } from "../context/AuthContext";
+import api from "../api/axios";
+import logo from "../assets/logo.png";
 
 import {
   getMyProfile,
@@ -43,12 +48,15 @@ const Profile = () => {
   const [following, setFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
 
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [blockMenuOpen, setBlockMenuOpen] = useState(false);
+  const [blockLoading, setBlockLoading] = useState(false);
+
   const [editOpen, setEditOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [pictureUploading, setPictureUploading] = useState(false);
   const [pictureRemoving, setPictureRemoving] = useState(false);
 
-  // Followers / Following modal
   const [followListOpen, setFollowListOpen] = useState(false);
   const [followListType, setFollowListType] = useState("followers");
   const [followListUsers, setFollowListUsers] = useState([]);
@@ -71,7 +79,10 @@ const Profile = () => {
 
   const isOwnProfile = String(loggedInUser?._id) === String(userId);
 
-  // Load profile and posts.
+  // -----------------------------------------
+  // LOAD PROFILE
+  // -----------------------------------------
+
   useEffect(() => {
     const loadProfile = async () => {
       try {
@@ -112,7 +123,40 @@ const Profile = () => {
     }
   }, [userId, loggedInUser?._id]);
 
-  // Keep selected post synchronized with the posts list.
+  // -----------------------------------------
+  // CHECK BLOCK STATUS
+  // -----------------------------------------
+
+  useEffect(() => {
+    const checkBlockStatus = async () => {
+      if (!loggedInUser || isOwnProfile) {
+        setIsBlocked(false);
+        return;
+      }
+
+      try {
+        const response = await api.get("/users/blocked");
+
+        const blockedUsers =
+          response.data.users || response.data.blockedUsers || [];
+
+        setIsBlocked(
+          blockedUsers.some(
+            (blockedUser) => String(blockedUser._id) === String(userId),
+          ),
+        );
+      } catch (error) {
+        console.error("Unable to check block status:", error);
+      }
+    };
+
+    checkBlockStatus();
+  }, [userId, loggedInUser?._id, isOwnProfile]);
+
+  // -----------------------------------------
+  // UPDATE SELECTED POST
+  // -----------------------------------------
+
   useEffect(() => {
     if (!selectedPost) return;
 
@@ -127,7 +171,10 @@ const Profile = () => {
     }
   }, [posts]);
 
-  // Close post viewer with Escape key.
+  // -----------------------------------------
+  // CLOSE POST VIEWER WITH ESCAPE
+  // -----------------------------------------
+
   useEffect(() => {
     if (!selectedPost) return;
 
@@ -144,7 +191,10 @@ const Profile = () => {
     };
   }, [selectedPost]);
 
-  // Close followers/following modal with Escape key.
+  // -----------------------------------------
+  // CLOSE FOLLOW LIST WITH ESCAPE
+  // -----------------------------------------
+
   useEffect(() => {
     if (!followListOpen) return;
 
@@ -161,7 +211,30 @@ const Profile = () => {
     };
   }, [followListOpen]);
 
-  // Create and clean up selected image preview.
+  // -----------------------------------------
+  // CLOSE BLOCK MENU ON OUTSIDE CLICK
+  // -----------------------------------------
+
+  useEffect(() => {
+    if (!blockMenuOpen) return;
+
+    const handleClickOutside = (event) => {
+      if (!event.target.closest("[data-block-menu]")) {
+        setBlockMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [blockMenuOpen]);
+
+  // -----------------------------------------
+  // IMAGE PREVIEW
+  // -----------------------------------------
+
   useEffect(() => {
     if (!selectedImage) {
       setPreviewImage("");
@@ -176,7 +249,10 @@ const Profile = () => {
     };
   }, [selectedImage]);
 
-  // Check username availability.
+  // -----------------------------------------
+  // CHECK USERNAME AVAILABILITY
+  // -----------------------------------------
+
   useEffect(() => {
     if (!editOpen || !profile) return;
 
@@ -223,7 +299,10 @@ const Profile = () => {
     return () => clearTimeout(timer);
   }, [editData.username, editOpen, profile]);
 
-  // Open followers or following list.
+  // -----------------------------------------
+  // OPEN FOLLOW LIST
+  // -----------------------------------------
+
   const openFollowList = async (type) => {
     setFollowListType(type);
     setFollowListUsers([]);
@@ -245,7 +324,10 @@ const Profile = () => {
     }
   };
 
-  // Follow and unfollow.
+  // -----------------------------------------
+  // FOLLOW / UNFOLLOW
+  // -----------------------------------------
+
   const handleFollow = async () => {
     try {
       setFollowLoading(true);
@@ -279,7 +361,62 @@ const Profile = () => {
     }
   };
 
-  // Validate image.
+  // -----------------------------------------
+  // BLOCK / UNBLOCK USER
+  // -----------------------------------------
+
+  const handleBlockToggle = async () => {
+    if (blockLoading) return;
+
+    if (!isBlocked) {
+      const confirmed = window.confirm(
+        `Are you sure you want to block @${profile.username}? They will be removed from your follow relationship.`,
+      );
+
+      if (!confirmed) {
+        setBlockMenuOpen(false);
+        return;
+      }
+    }
+
+    try {
+      setBlockLoading(true);
+
+      if (isBlocked) {
+        await api.delete(`/users/${userId}/block`);
+
+        setIsBlocked(false);
+
+        alert("User unblocked successfully.");
+      } else {
+        await api.post(`/users/${userId}/block`);
+
+        setIsBlocked(true);
+        setFollowing(false);
+
+        setProfile((previous) => ({
+          ...previous,
+          followers: (previous.followers || []).filter(
+            (follower) =>
+              String(follower?._id || follower) !== String(loggedInUser._id),
+          ),
+        }));
+
+        alert("User blocked successfully.");
+      }
+
+      setBlockMenuOpen(false);
+    } catch (error) {
+      alert(error.response?.data?.message || "Unable to update block status.");
+    } finally {
+      setBlockLoading(false);
+    }
+  };
+
+  // -----------------------------------------
+  // VALIDATE PROFILE IMAGE
+  // -----------------------------------------
+
   const validateImage = (file) => {
     const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
@@ -296,7 +433,10 @@ const Profile = () => {
     return true;
   };
 
-  // Image selection inside edit modal.
+  // -----------------------------------------
+  // SELECT PROFILE IMAGE
+  // -----------------------------------------
+
   const handleImageChange = (event) => {
     const file = event.target.files?.[0];
 
@@ -310,7 +450,10 @@ const Profile = () => {
     setSelectedImage(file);
   };
 
-  // Upload picture by clicking profile picture.
+  // -----------------------------------------
+  // QUICK PROFILE PICTURE UPLOAD
+  // -----------------------------------------
+
   const handleQuickPictureUpload = async (event) => {
     const file = event.target.files?.[0];
 
@@ -339,7 +482,10 @@ const Profile = () => {
     }
   };
 
-  // Remove current profile picture.
+  // -----------------------------------------
+  // REMOVE PROFILE PICTURE
+  // -----------------------------------------
+
   const handleRemoveProfilePicture = async () => {
     if (!profile.profilePicture) {
       alert("You do not have a profile picture to remove.");
@@ -373,7 +519,10 @@ const Profile = () => {
     }
   };
 
-  // Save profile information.
+  // -----------------------------------------
+  // UPDATE PROFILE
+  // -----------------------------------------
+
   const handleUpdateProfile = async (event) => {
     event.preventDefault();
 
@@ -428,7 +577,10 @@ const Profile = () => {
     }
   };
 
-  // Open edit modal.
+  // -----------------------------------------
+  // OPEN EDIT PROFILE
+  // -----------------------------------------
+
   const openEditModal = () => {
     setEditData({
       username: profile.username || "",
@@ -447,6 +599,10 @@ const Profile = () => {
     setEditOpen(true);
   };
 
+  // -----------------------------------------
+  // CLOSE EDIT PROFILE
+  // -----------------------------------------
+
   const closeEditModal = () => {
     if (saving || pictureRemoving) return;
 
@@ -454,7 +610,10 @@ const Profile = () => {
     setSelectedImage(null);
   };
 
-  // Remove deleted post from profile.
+  // -----------------------------------------
+  // DELETE POST FROM PROFILE
+  // -----------------------------------------
+
   const handlePostDelete = (postId) => {
     setPosts((previous) =>
       previous.filter((post) => String(post._id) !== String(postId)),
@@ -463,18 +622,43 @@ const Profile = () => {
     setSelectedPost(null);
   };
 
+  // -----------------------------------------
+  // LOADING
+  // -----------------------------------------
+
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#fafafa]">
-        <LoaderCircle className="animate-spin text-[#315efb]" size={32} />
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#fafafa]">
+        <img
+          src={logo}
+          alt="Baatein"
+          className="h-20 w-20 animate-pulse object-contain"
+        />
+
+        <p className="mt-4 text-sm font-medium text-gray-500">
+          Loading profile...
+        </p>
       </div>
     );
   }
 
+  // -----------------------------------------
+  // ERROR
+  // -----------------------------------------
+
   if (error || !profile) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#fafafa]">
-        <p className="text-sm text-red-500">{error || "Profile not found."}</p>
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#fafafa] px-4">
+        <p className="text-center text-sm text-red-500">
+          {error || "Profile not found."}
+        </p>
+
+        <Link
+          to="/"
+          className="mt-4 rounded-lg bg-[#315efb] px-4 py-2 text-sm font-medium text-white"
+        >
+          Back to home
+        </Link>
       </div>
     );
   }
@@ -482,25 +666,29 @@ const Profile = () => {
   const followersCount = profile.followers?.length || 0;
   const followingCount = profile.following?.length || 0;
 
+  // -----------------------------------------
+  // PROFILE UI
+  // -----------------------------------------
+
   return (
-    <div className="min-h-screen bg-[#fafafa] text-[#171717]">
+    <div className="min-h-screen overflow-x-hidden bg-[#fafafa] text-[#171717]">
       <Sidebar />
 
-      <main className="min-h-screen px-4 pb-20 pt-8 md:ml-[240px] md:px-8 lg:mr-[320px]">
-        <div className="mx-auto max-w-[850px]">
+      <main className="min-h-screen px-4 pb-24 pt-20 md:ml-[220px] md:px-8 md:pb-8 md:pt-8 lg:ml-[240px] lg:mr-[320px]">
+        <div className="mx-auto w-full max-w-[850px]">
           <Link
             to="/"
-            className="mb-6 inline-flex items-center gap-2 text-sm text-gray-500 hover:text-[#315efb]"
+            className="mb-6 inline-flex items-center gap-2 text-sm text-gray-500 transition hover:text-[#315efb]"
           >
             <ArrowLeft size={18} />
             Back to home
           </Link>
 
-          {/* Profile information */}
+          {/* PROFILE HEADER */}
+
           <section className="border-b border-gray-200 pb-8">
-            <div className="flex flex-col gap-8 sm:flex-row sm:items-center sm:gap-16">
-              {/* Clickable profile picture */}
-              <div className="flex justify-center sm:w-[180px]">
+            <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:gap-10 md:gap-12">
+              <div className="flex justify-center sm:w-[140px] md:w-[180px]">
                 <div className="relative">
                   <img
                     src={profile.profilePicture || DEFAULT_PROFILE_PICTURE}
@@ -510,7 +698,7 @@ const Profile = () => {
                         profilePictureInputRef.current?.click();
                       }
                     }}
-                    className={`h-28 w-28 rounded-full border border-gray-200 object-cover sm:h-36 sm:w-36 ${
+                    className={`h-28 w-28 rounded-full border border-gray-200 object-cover sm:h-32 sm:w-32 md:h-36 md:w-36 ${
                       isOwnProfile ? "cursor-pointer" : ""
                     }`}
                   />
@@ -522,7 +710,8 @@ const Profile = () => {
                         onClick={() => profilePictureInputRef.current?.click()}
                         disabled={pictureUploading}
                         title="Change profile picture"
-                        className="absolute bottom-0 right-0 flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-[#315efb] text-white hover:bg-blue-700 disabled:opacity-50"
+                        aria-label="Change profile picture"
+                        className="absolute bottom-0 right-0 flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-[#315efb] text-white transition hover:bg-blue-700 disabled:opacity-50"
                       >
                         {pictureUploading ? (
                           <LoaderCircle size={17} className="animate-spin" />
@@ -543,47 +732,98 @@ const Profile = () => {
                 </div>
               </div>
 
-              <div className="flex-1">
-                <div className="flex flex-wrap items-center justify-center gap-4 sm:justify-start">
-                  <h1 className="text-xl font-semibold text-gray-900">
+              <div className="min-w-0 flex-1">
+                {/* PROFILE ACTIONS */}
+
+                <div className="flex flex-wrap items-center justify-center gap-3 sm:justify-start">
+                  <h1 className="max-w-full break-words text-xl font-semibold text-gray-900">
                     {profile.username}
                   </h1>
 
                   {isOwnProfile ? (
-                    <button
-                      onClick={openEditModal}
-                      className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-200"
-                    >
-                      Edit profile
-                    </button>
-                  ) : (
-                    <button
-                      onClick={handleFollow}
-                      disabled={followLoading}
-                      className={`rounded-lg px-5 py-2 text-sm font-semibold ${
-                        following
-                          ? "bg-gray-100 text-gray-800 hover:bg-gray-200"
-                          : "bg-[#315efb] text-white hover:bg-blue-700"
-                      }`}
-                    >
-                      {followLoading
-                        ? "Please wait..."
-                        : following
-                          ? "Following"
-                          : "Follow"}
-                    </button>
-                  )}
+                    <>
+                      <button
+                        onClick={openEditModal}
+                        className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-200"
+                      >
+                        Edit profile
+                      </button>
 
-                  <button
-                    type="button"
-                    className="rounded-lg bg-gray-100 p-2 hover:bg-gray-200"
-                  >
-                    <Settings size={18} />
-                  </button>
+                      <Link
+                        to="/settings"
+                        aria-label="Settings"
+                        title="Settings"
+                        className="rounded-lg bg-gray-100 p-2 transition hover:bg-gray-200"
+                      >
+                        <Settings size={18} />
+                      </Link>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={handleFollow}
+                        disabled={followLoading || isBlocked}
+                        className={`rounded-lg px-5 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                          following
+                            ? "bg-gray-100 text-gray-800 hover:bg-gray-200"
+                            : "bg-[#315efb] text-white hover:bg-blue-700"
+                        }`}
+                      >
+                        {followLoading
+                          ? "Please wait..."
+                          : following
+                            ? "Following"
+                            : "Follow"}
+                      </button>
+
+                      {/* THREE DOT MENU */}
+
+                      <div className="relative" data-block-menu>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setBlockMenuOpen((previous) => !previous)
+                          }
+                          aria-label="More profile options"
+                          aria-expanded={blockMenuOpen}
+                          className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-700 transition hover:bg-gray-100"
+                        >
+                          <MoreVertical size={20} />
+                        </button>
+
+                        {blockMenuOpen && (
+                          <div className="absolute right-0 top-12 z-30 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg">
+                            <button
+                              type="button"
+                              onClick={handleBlockToggle}
+                              disabled={blockLoading}
+                              className={`flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-medium transition hover:bg-gray-50 disabled:opacity-50 ${
+                                isBlocked ? "text-gray-700" : "text-red-600"
+                              }`}
+                            >
+                              {blockLoading ? (
+                                <LoaderCircle
+                                  size={17}
+                                  className="animate-spin"
+                                />
+                              ) : isBlocked ? (
+                                <ShieldCheck size={17} />
+                              ) : (
+                                <Ban size={17} />
+                              )}
+
+                              {isBlocked ? "Unblock user" : "Block user"}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
 
-                {/* Counts */}
-                <div className="my-6 flex justify-center gap-6 text-sm sm:justify-start sm:gap-10">
+                {/* PROFILE COUNTS */}
+
+                <div className="my-6 flex flex-wrap justify-center gap-x-6 gap-y-3 text-sm sm:justify-start sm:gap-8 md:gap-10">
                   <p>
                     <strong>{posts.length}</strong>{" "}
                     <span className="text-gray-500">posts</span>
@@ -608,8 +848,9 @@ const Profile = () => {
                   </button>
                 </div>
 
-                {/* Profile details */}
-                <div className="text-center sm:text-left">
+                {/* PROFILE DETAILS */}
+
+                <div className="break-words text-center sm:text-left">
                   <h3 className="text-sm font-semibold text-gray-900">
                     {profile.fullName || profile.username}
                   </h3>
@@ -628,15 +869,17 @@ const Profile = () => {
             </div>
           </section>
 
-          {/* Posts heading */}
+          {/* POSTS HEADING */}
+
           <div className="flex items-center justify-center gap-2 border-t border-gray-200 py-5 text-sm font-semibold text-gray-800">
             <Grid3X3 size={17} />
             POSTS
           </div>
 
-          {/* Post grid */}
+          {/* POSTS GRID */}
+
           {posts.length === 0 ? (
-            <div className="flex flex-col items-center py-16 text-center">
+            <div className="flex flex-col items-center px-4 py-16 text-center">
               <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border-2 border-gray-300">
                 <Camera size={30} />
               </div>
@@ -650,14 +893,14 @@ const Profile = () => {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-3 gap-1 sm:gap-4">
+            <div className="grid grid-cols-3 gap-1 sm:gap-3 md:gap-4">
               {posts.map((post) => (
                 <button
                   type="button"
                   key={post._id}
                   onClick={() => setSelectedPost(post)}
                   aria-label={`View post by ${profile.username}`}
-                  className="group relative aspect-square overflow-hidden bg-gray-100 text-left"
+                  className="group relative aspect-square min-w-0 overflow-hidden bg-gray-100 text-left"
                 >
                   {post.mediaType === "video" ? (
                     <video
@@ -675,12 +918,12 @@ const Profile = () => {
                     />
                   )}
 
-                  <div className="absolute inset-0 flex items-center justify-center gap-5 bg-black/50 text-white opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
-                    <span className="text-sm font-semibold">
+                  <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 text-white opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100 sm:gap-5">
+                    <span className="text-xs font-semibold sm:text-sm">
                       ♥ {post.likes?.length || 0}
                     </span>
 
-                    <span className="text-sm font-semibold">
+                    <span className="text-xs font-semibold sm:text-sm">
                       Comments {post.comments?.length || 0}
                     </span>
                   </div>
@@ -693,18 +936,18 @@ const Profile = () => {
 
       <RightPanel />
 
-      {/* Followers / Following Modal */}
+      {/* FOLLOWERS / FOLLOWING MODAL */}
+
       {followListOpen && (
         <div
           className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-3 sm:p-4"
           onClick={() => setFollowListOpen(false)}
         >
           <div
-            className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
+            className="flex max-h-[85dvh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
             onClick={(event) => event.stopPropagation()}
           >
-            {/* Modal header */}
-            <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+            <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-4 py-4 sm:px-5">
               <h2 className="text-base font-semibold text-gray-900">
                 {followListType === "followers" ? "Followers" : "Following"}
               </h2>
@@ -713,14 +956,13 @@ const Profile = () => {
                 type="button"
                 onClick={() => setFollowListOpen(false)}
                 aria-label="Close list"
-                className="rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+                className="flex h-10 w-10 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
               >
                 <X size={20} />
               </button>
             </div>
 
-            {/* User list */}
-            <div className="min-h-[180px] flex-1 overflow-y-auto">
+            <div className="min-h-[180px] flex-1 overflow-y-auto overscroll-contain">
               {followListLoading ? (
                 <div className="flex items-center justify-center py-16">
                   <LoaderCircle
@@ -759,7 +1001,7 @@ const Profile = () => {
                       key={followUser._id}
                       to={`/profile/${followUser._id}`}
                       onClick={() => setFollowListOpen(false)}
-                      className="flex items-center gap-3 px-5 py-3 transition hover:bg-gray-50"
+                      className="flex min-w-0 items-center gap-3 px-4 py-3 transition hover:bg-gray-50 sm:px-5"
                     >
                       <img
                         src={
@@ -787,10 +1029,11 @@ const Profile = () => {
         </div>
       )}
 
-      {/* Large Post Viewer */}
+      {/* POST VIEWER */}
+
       {selectedPost && (
         <div
-          className="fixed inset-0 z-[110] flex items-center justify-center overflow-y-auto bg-black/80 p-2 sm:p-6"
+          className="fixed inset-0 z-[110] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/80 p-2 sm:p-6"
           onClick={() => setSelectedPost(null)}
         >
           <div
@@ -801,7 +1044,7 @@ const Profile = () => {
               type="button"
               onClick={() => setSelectedPost(null)}
               aria-label="Close post viewer"
-              className="absolute -right-1 -top-11 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white text-gray-800 shadow-lg hover:bg-gray-100 sm:-right-3 sm:-top-12"
+              className="absolute -right-1 -top-11 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white text-gray-800 shadow-lg transition hover:bg-gray-100 sm:-right-3 sm:-top-12"
             >
               <X size={21} />
             </button>
@@ -815,10 +1058,11 @@ const Profile = () => {
         </div>
       )}
 
-      {/* Edit Profile Modal */}
+      {/* EDIT PROFILE MODAL */}
+
       {editOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/50 p-4">
-          <div className="my-8 w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto overscroll-contain bg-black/50 p-3 sm:items-center sm:p-4">
+          <div className="my-auto max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-2xl bg-white p-4 shadow-xl sm:max-h-[calc(100dvh-2rem)] sm:p-6">
             <div className="mb-5 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">
                 Edit profile
@@ -828,20 +1072,22 @@ const Profile = () => {
                 type="button"
                 onClick={closeEditModal}
                 disabled={saving || pictureRemoving}
-                className="text-xl text-gray-500 hover:text-gray-900"
+                aria-label="Close edit profile"
+                className="flex h-10 w-10 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 disabled:opacity-50"
               >
-                ×
+                <X size={20} />
               </button>
             </div>
 
             <form onSubmit={handleUpdateProfile} className="space-y-4">
-              {/* Profile picture upload */}
+              {/* PROFILE PICTURE */}
+
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-700">
                   Profile picture
                 </label>
 
-                <div className="flex items-center gap-4">
+                <div className="flex flex-wrap items-center gap-4">
                   <img
                     src={
                       previewImage ||
@@ -849,10 +1095,10 @@ const Profile = () => {
                       DEFAULT_PROFILE_PICTURE
                     }
                     alt="Profile preview"
-                    className="h-20 w-20 rounded-full border border-gray-200 object-cover"
+                    className="h-20 w-20 shrink-0 rounded-full border border-gray-200 object-cover"
                   />
 
-                  <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                  <label className="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">
                     <ImagePlus size={18} />
                     Choose image
                     <input
@@ -868,13 +1114,12 @@ const Profile = () => {
                   JPEG, PNG, WebP or GIF. Maximum size: 5 MB.
                 </p>
 
-                {/* Remove current picture */}
                 {profile.profilePicture && (
                   <button
                     type="button"
                     onClick={handleRemoveProfilePicture}
                     disabled={pictureRemoving || saving}
-                    className="mt-3 block text-sm font-medium text-red-500 hover:text-red-700 disabled:opacity-50"
+                    className="mt-3 block min-h-10 text-left text-sm font-medium text-red-500 transition hover:text-red-700 disabled:opacity-50"
                   >
                     {pictureRemoving
                       ? "Removing picture..."
@@ -883,7 +1128,8 @@ const Profile = () => {
                 )}
               </div>
 
-              {/* Full name */}
+              {/* FULL NAME */}
+
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-700">
                   Full name
@@ -900,11 +1146,12 @@ const Profile = () => {
                   }
                   maxLength={50}
                   placeholder="Enter your full name"
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-[#315efb]"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-3 text-sm outline-none focus:border-[#315efb]"
                 />
               </div>
 
-              {/* Username */}
+              {/* USERNAME */}
+
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-700">
                   Username
@@ -922,7 +1169,7 @@ const Profile = () => {
                   required
                   minLength={3}
                   maxLength={30}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-[#315efb]"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-3 text-sm outline-none focus:border-[#315efb]"
                 />
 
                 <p
@@ -940,7 +1187,8 @@ const Profile = () => {
                 </p>
               </div>
 
-              {/* Status */}
+              {/* STATUS */}
+
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-700">
                   Status
@@ -957,7 +1205,7 @@ const Profile = () => {
                   }
                   maxLength={60}
                   placeholder="What's on your mind?"
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-[#315efb]"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-3 text-sm outline-none focus:border-[#315efb]"
                 />
 
                 <p className="mt-1 text-right text-xs text-gray-400">
@@ -965,7 +1213,8 @@ const Profile = () => {
                 </p>
               </div>
 
-              {/* Bio */}
+              {/* BIO */}
+
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-700">
                   Bio
@@ -982,7 +1231,7 @@ const Profile = () => {
                   maxLength={150}
                   rows={3}
                   placeholder="Tell people about yourself..."
-                  className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-[#315efb]"
+                  className="w-full resize-none rounded-lg border border-gray-200 px-3 py-3 text-sm outline-none focus:border-[#315efb]"
                 />
 
                 <p className="mt-1 text-right text-xs text-gray-400">
@@ -998,7 +1247,7 @@ const Profile = () => {
                   !usernameAvailability?.available ||
                   pictureRemoving
                 }
-                className="w-full rounded-lg bg-[#315efb] py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full rounded-lg bg-[#315efb] py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {saving ? "Saving..." : "Save changes"}
               </button>

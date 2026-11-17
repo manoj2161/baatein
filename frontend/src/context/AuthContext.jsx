@@ -16,10 +16,7 @@ export const AuthProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
   const [onlineUsers, setOnlineUsers] = useState(new Set());
 
-  // Stores unread message counts for individual conversations.
   const [unreadCounts, setUnreadCounts] = useState({});
-
-  // Stores the total unread notification count.
   const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
 
   const checkAuth = async () => {
@@ -41,7 +38,7 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
-  // Load unread message counts when the user is authenticated.
+  // Load unread message counts.
   useEffect(() => {
     if (!user?._id) {
       setUnreadCounts({});
@@ -51,7 +48,6 @@ export const AuthProvider = ({ children }) => {
     const loadUnreadCounts = async () => {
       try {
         const response = await api.get("/messages/conversations");
-
         const conversations = response.data.conversations || [];
 
         const counts = {};
@@ -69,7 +65,7 @@ export const AuthProvider = ({ children }) => {
     loadUnreadCounts();
   }, [user?._id]);
 
-  // Load unread notification count when the user is authenticated.
+  // Load unread notification count.
   useEffect(() => {
     if (!user?._id) {
       setNotificationUnreadCount(0);
@@ -79,7 +75,6 @@ export const AuthProvider = ({ children }) => {
     const loadNotificationCount = async () => {
       try {
         const response = await api.get("/notifications");
-
         setNotificationUnreadCount(response.data.unreadCount || 0);
       } catch (error) {
         console.error("Failed to load notification count:", error);
@@ -112,7 +107,6 @@ export const AuthProvider = ({ children }) => {
       console.error("Socket connection error:", error.message);
     });
 
-    // Update online users.
     newSocket.on("onlineUsers", (userIds) => {
       setOnlineUsers(new Set(userIds.map(String)));
     });
@@ -133,14 +127,12 @@ export const AuthProvider = ({ children }) => {
       });
     });
 
-    // Update unread count when a new message arrives.
     newSocket.on("newMessage", (message) => {
       const senderId =
         typeof message.sender === "object"
           ? message.sender?._id
           : message.sender;
 
-      // Do not count messages sent by the current user.
       if (String(senderId) === String(user._id)) return;
 
       const conversationId =
@@ -156,7 +148,6 @@ export const AuthProvider = ({ children }) => {
       }));
     });
 
-    // Use the server's unread count after a conversation is marked as read.
     newSocket.on("unreadCountUpdated", (data) => {
       if (!data.conversationId) return;
 
@@ -166,14 +157,12 @@ export const AuthProvider = ({ children }) => {
       }));
     });
 
-    // Increase notification count when a new notification arrives.
     newSocket.on("newNotification", (notification) => {
       if (notification.isRead) return;
 
       setNotificationUnreadCount((previous) => previous + 1);
     });
 
-    // Use the server's unread count after notifications are marked as read.
     newSocket.on("notificationCountUpdated", (data) => {
       setNotificationUnreadCount(data.unreadCount || 0);
     });
@@ -185,7 +174,6 @@ export const AuthProvider = ({ children }) => {
     };
   }, [user?._id]);
 
-  // Calculate total unread messages across all conversations.
   const totalUnreadCount = Object.values(unreadCounts).reduce(
     (total, count) => total + count,
     0,
@@ -209,13 +197,20 @@ export const AuthProvider = ({ children }) => {
     return response.data;
   };
 
+  // Clear local authentication without calling the backend.
+  const clearAuth = () => {
+    setUser(null);
+    setUnreadCounts({});
+    setNotificationUnreadCount(0);
+    setOnlineUsers(new Set());
+  };
+
+  // Normal logout.
   const logout = async () => {
     try {
       await api.post("/auth/logout");
     } finally {
-      setUser(null);
-      setUnreadCounts({});
-      setNotificationUnreadCount(0);
+      clearAuth();
     }
   };
 
@@ -236,6 +231,7 @@ export const AuthProvider = ({ children }) => {
         signup,
         login,
         logout,
+        clearAuth,
         updateUser,
         checkAuth,
       }}
