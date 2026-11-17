@@ -66,7 +66,7 @@ export const createConversation = async (req, res) => {
     if (
       !userId ||
       !mongoose.Types.ObjectId.isValid(userId) ||
-      userId === currentUserId.toString()
+      userId.toString() === currentUserId.toString()
     ) {
       return res.status(400).json({
         message: "Invalid user",
@@ -160,7 +160,7 @@ export const getConversations = async (req, res) => {
               deletedFor: { $ne: userId },
             });
 
-        let conversationData = conversation.toObject();
+        const conversationData = conversation.toObject();
 
         if (blocked) {
           conversationData.lastMessage = null;
@@ -228,7 +228,7 @@ export const getArchivedConversations = async (req, res) => {
               deletedFor: { $ne: userId },
             });
 
-        let conversationData = conversation.toObject();
+        const conversationData = conversation.toObject();
 
         if (blocked) {
           conversationData.lastMessage = null;
@@ -434,9 +434,9 @@ export const getMessages = async (req, res) => {
 // SEND TEXT, IMAGE, OR VIDEO MESSAGE
 export const sendMessage = async (req, res) => {
   try {
-    const text = req.body?.text?.trim() || "";
-    const file = req.file;
+    const text = typeof req.body?.text === "string" ? req.body.text.trim() : "";
 
+    const file = req.file;
     const currentUserId = req.user._id;
     const { conversationId } = req.params;
 
@@ -464,6 +464,12 @@ export const sendMessage = async (req, res) => {
     }
 
     const otherUserId = getOtherParticipantId(conversation, currentUserId);
+
+    if (!otherUserId) {
+      return res.status(400).json({
+        message: "Invalid conversation participants",
+      });
+    }
 
     const blocked = await isBlockedBetweenUsers(currentUserId, otherUserId);
 
@@ -506,6 +512,8 @@ export const sendMessage = async (req, res) => {
 
     await newMessage.populate("sender", "username profilePicture");
 
+    // Deliver the complete message, including mediaUrl and mediaType,
+    // to both participants through their Socket.IO rooms.
     const io = req.app.get("io");
 
     if (io) {
@@ -535,6 +543,7 @@ export const deleteMessagesForEveryone = async (req, res) => {
     const userId = req.user._id;
 
     if (
+      !mongoose.Types.ObjectId.isValid(conversationId) ||
       !Array.isArray(messageIds) ||
       messageIds.length === 0 ||
       !messageIds.every((id) => mongoose.Types.ObjectId.isValid(id))
@@ -624,6 +633,7 @@ export const deleteMessagesForMe = async (req, res) => {
     const userId = req.user._id;
 
     if (
+      !mongoose.Types.ObjectId.isValid(conversationId) ||
       !Array.isArray(messageIds) ||
       messageIds.length === 0 ||
       !messageIds.every((id) => mongoose.Types.ObjectId.isValid(id))

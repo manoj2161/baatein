@@ -1,5 +1,4 @@
 import express from "express";
-
 import authMiddleware from "../middleware/authMiddleware.js";
 import upload from "../middleware/uploadMiddleware.js";
 
@@ -26,25 +25,22 @@ router.post("/conversation", createConversation);
 router.get("/conversations", getConversations);
 router.get("/archived", getArchivedConversations);
 
-// Read receipts
+// Message actions
 router.patch("/:conversationId/read", markMessagesAsRead);
-
-// Archive and unarchive
 router.patch("/:conversationId/archive", archiveConversation);
 router.patch("/:conversationId/unarchive", unarchiveConversation);
 
-// Message deletion
+// Delete messages
 router.delete("/:conversationId/messages/everyone", deleteMessagesForEveryone);
-
 router.delete("/:conversationId/messages/me", deleteMessagesForMe);
 
-// Conversation deletion
+// Delete conversation
 router.delete("/:conversationId", deleteConversation);
 
 // Get messages
 router.get("/:conversationId", getMessages);
 
-// Send text, image, or video message
+// Send text, photo, or video
 router.post("/:conversationId", upload.single("media"), sendMessage);
 
 export default router;
