@@ -70,7 +70,7 @@ const Notifications = () => {
   const getNotificationIcon = (type) => {
     switch (type) {
       case "like":
-        return <Heart size={18} className="text-red-500" fill="currentColor" />;
+        return <Heart size={18} className="fill-current text-red-500" />;
       case "comment":
         return <MessageCircle size={18} className="text-blue-500" />;
       case "follow":
@@ -101,10 +101,11 @@ const Notifications = () => {
     <div className="min-h-screen bg-[#fafafa] text-[#171717]">
       <Sidebar />
 
-      <main className="min-h-screen px-4 pb-20 pt-8 md:ml-[240px] md:px-8">
+      <main className="min-h-screen px-4 pb-24 pt-20 md:ml-[240px] md:px-8 md:pb-8 md:pt-8">
         <div className="mx-auto w-full max-w-[650px]">
-          <div className="mb-8 flex items-center justify-between">
-            <div>
+          {/* Header */}
+          <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
               <h1 className="text-2xl font-bold text-gray-900">
                 Notifications
               </h1>
@@ -116,15 +117,17 @@ const Notifications = () => {
 
             {unreadCount > 0 && (
               <button
+                type="button"
                 onClick={handleReadAll}
-                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-[#315efb] hover:bg-blue-50"
+                className="flex w-full shrink-0 items-center justify-center gap-2 self-start whitespace-nowrap rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-semibold text-[#315efb] transition hover:bg-blue-100 sm:w-auto sm:self-center"
               >
-                <Check size={17} />
+                <Check size={18} />
                 Mark all read
               </button>
             )}
           </div>
 
+          {/* Notifications List */}
           <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
             {loading ? (
               <div className="p-10 text-center text-sm text-gray-500">
@@ -171,33 +174,35 @@ const Notifications = () => {
                 return (
                   <div
                     key={notification._id}
-                    className={`flex items-center gap-3 border-b border-gray-100 px-4 py-4 transition hover:bg-gray-50 ${
+                    className={`flex items-center gap-3 border-b border-gray-100 px-3 py-4 transition hover:bg-gray-50 sm:px-4 ${
                       !notification.isRead ? "bg-blue-50/50" : "bg-white"
                     }`}
                   >
-                    {/* Sender profile picture */}
+                    {/* Sender Profile Picture */}
                     {profileUrl ? (
                       <Link
                         to={profileUrl}
                         onClick={() => handleSenderClick(notification)}
                         title={`View ${sender?.username || "user"}'s profile`}
+                        className="shrink-0"
                       >
                         <img
                           src={profilePicture}
                           alt=""
-                          className="h-11 w-11 shrink-0 rounded-full object-cover"
+                          className="h-10 w-10 rounded-full object-cover sm:h-11 sm:w-11"
                         />
                       </Link>
                     ) : (
                       <img
                         src={profilePicture}
                         alt=""
-                        className="h-11 w-11 shrink-0 rounded-full object-cover"
+                        className="h-10 w-10 shrink-0 rounded-full object-cover sm:h-11 sm:w-11"
                       />
                     )}
 
+                    {/* Notification Text */}
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm text-gray-800">
+                      <p className="break-words text-sm text-gray-800">
                         {profileUrl ? (
                           <Link
                             to={profileUrl}
@@ -221,7 +226,8 @@ const Notifications = () => {
                       </p>
                     </div>
 
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-50">
+                    {/* Notification Type */}
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-50 sm:h-9 sm:w-9">
                       {getNotificationIcon(notification.type)}
                     </div>
 

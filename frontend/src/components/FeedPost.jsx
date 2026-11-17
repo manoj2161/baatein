@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { MoreHorizontal, Trash2 } from "lucide-react";
+import { MoreHorizontal, Trash2, Heart, MessageCircle } from "lucide-react";
 
 import { useAuth } from "../context/AuthContext";
 import { toggleLike, addComment, deletePost } from "../services/postService";
@@ -26,7 +26,6 @@ const FeedPost = ({ post, onDelete }) => {
   const authorId = author._id;
   const isOwner = String(authorId) === String(user?._id);
 
-  // Close menu when clicking outside
   useEffect(() => {
     const handleOutsideClick = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
@@ -216,20 +215,33 @@ const FeedPost = ({ post, onDelete }) => {
       )}
 
       {/* Likes and comments count */}
-      <div className="flex items-center gap-5 border-b border-gray-100 px-4 py-3 text-sm">
+      <div className="flex items-center gap-6 border-b border-gray-100 px-4 py-3">
         <button
           type="button"
           onClick={handleLike}
-          className="flex items-center gap-2 text-lg"
+          aria-label={liked ? "Unlike post" : "Like post"}
+          className="flex items-center gap-2 text-gray-700 transition hover:scale-105"
         >
-          <span className={liked ? "text-red-500" : "text-gray-700"}>
-            {liked ? "♥" : "♡"}
-          </span>
+          <Heart
+            size={25}
+            strokeWidth={2.2}
+            className={`transition-colors ${
+              liked
+                ? "fill-red-500 text-red-500"
+                : "fill-transparent text-gray-700 hover:text-red-500"
+            }`}
+          />
 
-          <span className="text-sm text-gray-700">{likesCount}</span>
+          <span className="text-sm font-medium">{likesCount}</span>
         </button>
 
-        <span className="text-gray-600">Comments {comments.length}</span>
+        <div
+          className="flex items-center gap-2 text-gray-700"
+          aria-label={`${comments.length} comments`}
+        >
+          <MessageCircle size={24} strokeWidth={2} />
+          <span className="text-sm font-medium">{comments.length}</span>
+        </div>
       </div>
 
       {/* Comments */}
