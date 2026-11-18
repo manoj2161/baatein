@@ -30,6 +30,8 @@ interface AuthContextType {
   totalUnreadCount: number;
   notificationUnreadCount: number;
 
+  updateUser: (updatedData: Partial<AuthUser>) => void;
+
   login: (email: string, password: string) => Promise<void>;
   signup: (username: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -65,6 +67,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     restoreSession();
   }, []);
+
+  // UPDATE USER DATA ACROSS THE APP
+  const updateUser = (updatedData: Partial<AuthUser>) => {
+    setUser((previousUser) =>
+      previousUser ? { ...previousUser, ...updatedData } : null,
+    );
+  };
 
   // LOAD UNREAD MESSAGE COUNTS
   useEffect(() => {
@@ -152,9 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         newSocket = io(SOCKET_URL, {
-          auth: {
-            token,
-          },
+          auth: { token },
           transports: ["polling"],
           reconnection: true,
           reconnectionAttempts: Infinity,
@@ -176,12 +183,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.log("Baatein Socket disconnected:", reason);
         });
 
-        // ONLINE USERS
         newSocket.on("onlineUsers", (userIds: string[]) => {
           setOnlineUsers(new Set(userIds.map(String)));
         });
 
-        // USER ONLINE / OFFLINE
         newSocket.on("userStatus", (data) => {
           const changedUserId = String(data.userId);
 
@@ -198,7 +203,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           });
         });
 
-        // NEW MESSAGE
         newSocket.on("newMessage", (message) => {
           const senderId =
             typeof message.sender === "object"
@@ -220,7 +224,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }));
         });
 
-        // SERVER-SIDE UNREAD COUNT UPDATE
         newSocket.on("unreadCountUpdated", (data) => {
           if (!data.conversationId) return;
 
@@ -230,14 +233,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }));
         });
 
-        // NEW NOTIFICATION
         newSocket.on("newNotification", (notification) => {
           if (notification.isRead) return;
 
           setNotificationUnreadCount((previous) => previous + 1);
         });
 
-        // NOTIFICATION COUNT UPDATE
         newSocket.on("notificationCountUpdated", (data) => {
           setNotificationUnreadCount(data.unreadCount || 0);
         });
@@ -260,7 +261,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [user?._id]);
 
-  // TOTAL UNREAD MESSAGE COUNT
   const totalUnreadCount = Object.values(unreadCounts).reduce(
     (total, count) => total + count,
     0,
@@ -314,6 +314,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         totalUnreadCount,
         notificationUnreadCount,
 
+        updateUser,
+
         login,
         signup,
         logout,
@@ -324,7 +326,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// ACCESS AUTHENTICATION FROM ANY COMPONENT
 export function useAuth() {
   const context = useContext(AuthContext);
 

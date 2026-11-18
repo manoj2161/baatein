@@ -1,4 +1,3 @@
-
 import axios from "axios";
 import * as SecureStore from "expo-secure-store";
 
@@ -40,7 +39,7 @@ api.interceptors.request.use(
 
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
 export default api;

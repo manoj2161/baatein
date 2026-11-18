@@ -3,7 +3,6 @@ import Unsent from "../models/Unsent.js";
 import UnsentReply from "../models/UnsentReply.js";
 import User from "../models/User.js";
 
-// CHECK WHETHER TWO USERS HAVE BLOCKED EACH OTHER
 const isBlockedBetweenUsers = async (userId1, userId2) => {
   const users = await User.find({
     _id: { $in: [userId1, userId2] },
@@ -25,17 +24,14 @@ const isBlockedBetweenUsers = async (userId1, userId2) => {
   );
 };
 
-// CHECK WHETHER A USER CAN ACCESS AN UNSENT MESSAGE
 const canAccessUnsent = async (unsent, currentUserId) => {
-  const authorId = unsent.author._id || unsent.author;
+  const authorId = unsent.author?._id || unsent.author;
 
   if (authorId.toString() === currentUserId.toString()) {
     return { allowed: true };
   }
 
-  const blocked = await isBlockedBetweenUsers(currentUserId, authorId);
-
-  if (blocked) {
+  if (await isBlockedBetweenUsers(currentUserId, authorId)) {
     return { allowed: false, reason: "blocked" };
   }
 
@@ -54,34 +50,29 @@ const canAccessUnsent = async (unsent, currentUserId) => {
   return { allowed: true };
 };
 
-// FORMAT MESSAGE WITHOUT EXPOSING PRIVATE USER INFORMATION
 const formatUnsent = (unsent, currentUserId) => {
   const isAnonymous = unsent.visibility === "anonymous";
-
   const author = unsent.author;
-
   const reactions = unsent.reactions || [];
 
   const isReacted = reactions.some((reaction) => {
     const reactionUserId = reaction.user?._id || reaction.user;
-
     return reactionUserId?.toString() === currentUserId.toString();
   });
 
-  let formattedAuthor = {
-    username: "Anonymous",
-    fullName: "Anonymous",
-    profilePicture: "",
-  };
-
-  if (!isAnonymous && author && typeof author === "object") {
-    formattedAuthor = {
-      _id: author._id,
-      username: author.username || "",
-      fullName: author.fullName || "",
-      profilePicture: author.profilePicture || "",
-    };
-  }
+  const formattedAuthor =
+    !isAnonymous && author && typeof author === "object"
+      ? {
+          _id: author._id,
+          username: author.username || "",
+          fullName: author.fullName || "",
+          profilePicture: author.profilePicture || "",
+        }
+      : {
+          username: "Anonymous",
+          fullName: "Anonymous",
+          profilePicture: "",
+        };
 
   return {
     _id: unsent._id,
@@ -98,21 +89,19 @@ const formatUnsent = (unsent, currentUserId) => {
   };
 };
 
-// FORMAT ANONYMOUS REPLY
-const formatUnsentReply = (reply) => {
-  return {
-    _id: reply._id,
-    content: reply.content,
-    author: {
-      username: "Anonymous",
-      fullName: "Anonymous",
-      profilePicture: "",
-    },
-    isAnonymous: true,
-    createdAt: reply.createdAt,
-    updatedAt: reply.updatedAt,
-  };
-};
+const formatUnsentReply = (reply, currentUserId) => ({
+  _id: reply._id,
+  content: reply.content,
+  author: {
+    username: "Anonymous",
+    fullName: "Anonymous",
+    profilePicture: "",
+  },
+  isAnonymous: true,
+  isOwnReply: reply.author?.toString() === currentUserId.toString(),
+  createdAt: reply.createdAt,
+  updatedAt: reply.updatedAt,
+});
 
 // CREATE UNSENT MESSAGE
 export const createUnsent = async (req, res) => {
@@ -197,8 +186,6 @@ export const getUnsentFeed = async (req, res) => {
 
     const excludedIds = [...currentUser.blockedUsers, ...blockedByUsers];
 
-    const followedIds = currentUser.following || [];
-
     const unsentMessages = await Unsent.find({
       author: { $nin: excludedIds },
       $or: [
@@ -206,7 +193,7 @@ export const getUnsentFeed = async (req, res) => {
         { visibility: "public" },
         {
           visibility: "followers",
-          author: { $in: followedIds },
+          author: { $in: currentUser.following || [] },
         },
       ],
     })
@@ -256,7 +243,7 @@ export const getMyUnsent = async (req, res) => {
   }
 };
 
-// TOGGLE "I FELT THIS TOO" REACTION
+// TOGGLE REACTION
 export const toggleUnsentReaction = async (req, res) => {
   try {
     const { unsentId } = req.params;
@@ -373,7 +360,7 @@ export const createUnsentReply = async (req, res) => {
 
     return res.status(201).json({
       message: "Your anonymous reply was published.",
-      reply: formatUnsentReply(reply),
+      reply: formatUnsentReply(reply, currentUserId),
       replyCount: (unsent.replyCount || 0) + 1,
     });
   } catch (error) {
@@ -385,7 +372,7 @@ export const createUnsentReply = async (req, res) => {
   }
 };
 
-// GET REPLIES FOR AN UNSENT MESSAGE
+// GET REPLIES
 export const getUnsentReplies = async (req, res) => {
   try {
     const { unsentId } = req.params;
@@ -423,7 +410,7 @@ export const getUnsentReplies = async (req, res) => {
       .lean();
 
     return res.status(200).json({
-      replies: replies.map(formatUnsentReply),
+      replies: replies.map((reply) => formatUnsentReply(reply, currentUserId)),
       count: replies.length,
     });
   } catch (error) {
@@ -435,7 +422,7 @@ export const getUnsentReplies = async (req, res) => {
   }
 };
 
-// DELETE YOUR OWN ANONYMOUS REPLY
+// DELETE OWN REPLY
 export const deleteUnsentReply = async (req, res) => {
   try {
     const { unsentId, replyId } = req.params;
@@ -479,7 +466,7 @@ export const deleteUnsentReply = async (req, res) => {
   }
 };
 
-// DELETE MY UNSENT MESSAGE
+// DELETE UNSENT MESSAGE
 export const deleteUnsent = async (req, res) => {
   try {
     const { unsentId } = req.params;
@@ -501,7 +488,6 @@ export const deleteUnsent = async (req, res) => {
       });
     }
 
-    // Remove all replies belonging to this message.
     await UnsentReply.deleteMany({
       unsent: unsentId,
     });

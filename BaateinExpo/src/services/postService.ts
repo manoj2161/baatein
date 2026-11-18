@@ -7,6 +7,12 @@ export const getFeed = async () => {
   return response.data.posts || [];
 };
 
+// GET POSTS BY USER
+export const getUserPosts = async (userId: string) => {
+  const response = await api.get(`/posts/user/${userId}`);
+  return response.data.posts || [];
+};
+
 // CREATE POST
 export const createPost = async (
   assets: ImagePickerAsset[],

@@ -1,11 +1,12 @@
 import { Tabs, useRouter } from "expo-router";
 import {
   House,
-  Search,
+  PenLine,
   PlusSquare,
   MessageCircle,
   UserRound,
   Bell,
+  Search,
 } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -18,47 +19,15 @@ export default function AppTabs() {
   return (
     <Tabs
       screenOptions={{
-        headerShown: true,
-        headerTitle: "baatein.",
-        headerTitleAlign: "left",
-        headerTitleStyle: {
-          color: "#315efb",
-          fontSize: 25,
-          fontWeight: "800",
-        },
-        headerStyle: {
-          backgroundColor: "#FFFFFF",
-        },
-        headerShadowVisible: false,
-
-        headerRight: () => (
-          <Pressable
-            onPress={() => router.push("/(tabs)/notifications")}
-            style={styles.notificationButton}
-          >
-            <Bell size={22} color="#333333" />
-
-            {notificationUnreadCount > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>
-                  {notificationUnreadCount > 99
-                    ? "99+"
-                    : notificationUnreadCount}
-                </Text>
-              </View>
-            )}
-          </Pressable>
-        ),
-
-        tabBarActiveTintColor: "#315efb",
+        headerShown: false,
+        tabBarActiveTintColor: "#315EFB",
         tabBarInactiveTintColor: "#777777",
         tabBarShowLabel: false,
         tabBarHideOnKeyboard: true,
-
         tabBarStyle: {
-          height: 62,
-          paddingTop: 8,
-          paddingBottom: 8,
+          height: 72,
+          paddingTop: 2,
+          paddingBottom: 18,
           backgroundColor: "#FFFFFF",
           borderTopWidth: 1,
           borderTopColor: "#EEEEEE",
@@ -66,26 +35,71 @@ export default function AppTabs() {
         },
       }}
     >
+      {/* HOME */}
       <Tabs.Screen
         name="index"
         options={{
           title: "Home",
+          headerShown: true,
+          headerTitle: "baatein.",
+          headerTitleAlign: "left",
+          headerTitleStyle: {
+            color: "#315EFB",
+            fontSize: 25,
+            fontWeight: "800",
+          },
+          headerStyle: {
+            backgroundColor: "#FFFFFF",
+          },
+          headerShadowVisible: false,
+          headerTitleContainerStyle: {
+            marginLeft: 8,
+          },
+          headerRight: () => (
+            <View style={styles.headerActions}>
+              <Pressable
+                onPress={() => router.push("/search")}
+                style={styles.headerButton}
+              >
+                <Search size={21} color="#333333" />
+              </Pressable>
+
+              <Pressable
+                onPress={() => router.push("/notification-center")}
+                style={styles.headerButton}
+              >
+                <Bell size={21} color="#333333" />
+
+                {notificationUnreadCount > 0 && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>
+                      {notificationUnreadCount > 99
+                        ? "99+"
+                        : notificationUnreadCount}
+                    </Text>
+                  </View>
+                )}
+              </Pressable>
+            </View>
+          ),
           tabBarIcon: ({ color, size }) => (
             <House color={color} size={size + 3} />
           ),
         }}
       />
 
+      {/* THE UNSENT */}
       <Tabs.Screen
-        name="search"
+        name="unsent"
         options={{
-          title: "Search",
+          title: "The Unsent",
           tabBarIcon: ({ color, size }) => (
-            <Search color={color} size={size + 3} />
+            <PenLine color={color} size={size + 3} />
           ),
         }}
       />
 
+      {/* CREATE */}
       <Tabs.Screen
         name="create"
         options={{
@@ -96,6 +110,7 @@ export default function AppTabs() {
         }}
       />
 
+      {/* MESSAGES */}
       <Tabs.Screen
         name="messages"
         options={{
@@ -106,6 +121,7 @@ export default function AppTabs() {
         }}
       />
 
+      {/* PROFILE */}
       <Tabs.Screen
         name="profile"
         options={{
@@ -116,29 +132,25 @@ export default function AppTabs() {
         }}
       />
 
-      <Tabs.Screen
-        name="notifications"
-        options={{
-          href: null,
-        }}
-      />
-
-      <Tabs.Screen
-        name="explore"
-        options={{
-          href: null,
-        }}
-      />
+      {/* HIDDEN ROUTES */}
+      <Tabs.Screen name="search" options={{ href: null }} />
+      <Tabs.Screen name="notifications" options={{ href: null }} />
+      <Tabs.Screen name="explore" options={{ href: null }} />
     </Tabs>
   );
 }
 
 const styles = StyleSheet.create({
-  notificationButton: {
-    width: 42,
-    height: 42,
-    marginRight: 14,
-    borderRadius: 21,
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginRight: 12,
+  },
+  headerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: "#F3F4F6",
     alignItems: "center",
     justifyContent: "center",

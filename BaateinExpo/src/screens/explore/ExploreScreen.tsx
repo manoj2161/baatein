@@ -117,7 +117,6 @@ export default function ExploreScreen() {
         </View>
       </View>
 
-      {/* Search input */}
       <View style={styles.searchBox}>
         <Search size={19} color="#999999" />
 
@@ -176,6 +175,7 @@ export default function ExploreScreen() {
         </View>
       ) : (
         <ScrollView
+          style={styles.listContainer}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.userList}
         >
@@ -241,19 +241,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#FAFAFA",
-    paddingHorizontal: 16,
-    paddingTop: 20,
+    paddingHorizontal: 20,
+    paddingTop: 26,
   },
   headingSection: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 22,
+    marginBottom: 24,
     gap: 12,
   },
   headingIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 46,
+    height: 46,
+    borderRadius: 13,
     backgroundColor: "#EFF4FF",
     alignItems: "center",
     justifyContent: "center",
@@ -269,14 +269,14 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   searchBox: {
-    minHeight: 48,
+    minHeight: 50,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "#E5E7EB",
-    borderRadius: 12,
+    borderRadius: 13,
     paddingHorizontal: 14,
   },
   searchInput: {
@@ -289,10 +289,13 @@ const styles = StyleSheet.create({
     color: "#777777",
     fontSize: 12,
     marginTop: 18,
-    marginBottom: 10,
+    marginBottom: 12,
+  },
+  listContainer: {
+    flex: 1,
   },
   userList: {
-    paddingBottom: 25,
+    paddingBottom: 105,
     gap: 12,
   },
   userCard: {
