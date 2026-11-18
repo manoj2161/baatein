@@ -72,7 +72,10 @@ app.set("io", io);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/users", followRoutes);
+
+// POSTS
 app.use("/api/posts", postRoutes);
+
 app.use("/api/stories", storyRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/messages", messageRoutes);
@@ -112,6 +115,7 @@ const startServer = async () => {
     httpServer.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
       console.log("Socket.IO is ready");
+      console.log("Discover posts route: GET /api/posts/discover");
       console.log("The Unsent routes are ready");
       console.log("Allowed frontend origins:", allowedOrigins);
     });

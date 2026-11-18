@@ -63,7 +63,7 @@ export const createPost = async (req, res) => {
   }
 };
 
-// GET FEED
+// GET HOME FEED
 export const getFeed = async (req, res) => {
   try {
     const user = await User.findById(req.user._id).select("following");
@@ -86,6 +86,27 @@ export const getFeed = async (req, res) => {
 
     return res.status(500).json({
       message: "Unable to load feed",
+    });
+  }
+};
+
+// GET DISCOVER POSTS
+export const getDiscoverPosts = async (req, res) => {
+  try {
+    const posts = await Post.find()
+      .populate("user", "username profilePicture")
+      .populate("comments.user", "username profilePicture")
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    return res.status(200).json({
+      posts,
+    });
+  } catch (error) {
+    console.error("Discover posts error:", error);
+
+    return res.status(500).json({
+      message: "Unable to load discover posts",
     });
   }
 };
@@ -128,12 +149,9 @@ export const toggleLike = async (req, res) => {
     );
 
     if (alreadyLiked) {
-      // REMOVE LIKE
       post.likes.pull(req.user._id);
-
       await post.save();
 
-      // DELETE THE CORRESPONDING LIKE NOTIFICATION
       try {
         await Notification.deleteMany({
           recipient: post.user,
@@ -142,13 +160,11 @@ export const toggleLike = async (req, res) => {
           type: "like",
         });
 
-        // Calculate the recipient's latest unread notification count.
         const unreadCount = await Notification.countDocuments({
           recipient: post.user,
           isRead: false,
         });
 
-        // Update the recipient's sidebar badge in real time.
         const io = req.app.get("io");
 
         if (io) {
@@ -160,12 +176,9 @@ export const toggleLike = async (req, res) => {
         console.error("Unlike notification cleanup error:", notificationError);
       }
     } else {
-      // ADD LIKE
       post.likes.addToSet(req.user._id);
-
       await post.save();
 
-      // CREATE NOTIFICATION
       try {
         await createNotification({
           recipient: post.user,
@@ -220,7 +233,6 @@ export const addComment = async (req, res) => {
 
     await post.save();
 
-    // CREATE COMMENT NOTIFICATION
     try {
       await createNotification({
         recipient: post.user,
