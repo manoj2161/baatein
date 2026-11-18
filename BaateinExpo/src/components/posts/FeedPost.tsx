@@ -17,6 +17,8 @@ import {
   MoreHorizontal,
   Send,
   Trash2,
+  CornerDownRight,
+  X,
 } from "lucide-react-native";
 
 import { useAuth } from "../../context/AuthContext";
@@ -32,6 +34,8 @@ interface Comment {
   _id?: string;
   user?: PostUser;
   text: string;
+  parentComment?: string | null;
+  createdAt?: string;
 }
 
 interface Post {
@@ -62,6 +66,7 @@ export default function FeedPost({ post, onDelete }: FeedPostProps) {
   const [likesCount, setLikesCount] = useState(post.likes?.length || 0);
   const [comments, setComments] = useState<Comment[]>(post.comments || []);
   const [commentText, setCommentText] = useState("");
+  const [replyingTo, setReplyingTo] = useState<Comment | null>(null);
   const [loading, setLoading] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -70,12 +75,12 @@ export default function FeedPost({ post, onDelete }: FeedPostProps) {
   const authorId = author._id;
   const isOwner = String(authorId) === String(user?._id);
 
-  const handleOpenProfile = () => {
-    if (!authorId) return;
+  const handleOpenProfile = (userId?: string) => {
+    if (!userId) return;
 
     router.push({
       pathname: "/user/[userId]",
-      params: { userId: authorId },
+      params: { userId },
     });
   };
 
@@ -105,7 +110,13 @@ export default function FeedPost({ post, onDelete }: FeedPostProps) {
     }
   };
 
-  // ADD COMMENT
+  // SELECT COMMENT TO REPLY TO
+  const handleReply = (comment: Comment) => {
+    setReplyingTo(comment);
+    setCommentText("");
+  };
+
+  // ADD COMMENT OR REPLY
   const handleComment = async () => {
     const text = commentText.trim();
 
@@ -114,21 +125,15 @@ export default function FeedPost({ post, onDelete }: FeedPostProps) {
     try {
       setLoading(true);
 
-      await addComment(post._id, text);
+      const response = await addComment(post._id, text, replyingTo?._id);
 
-      setComments((previous) => [
-        ...previous,
-        {
-          user: {
-            _id: user?._id,
-            username: user?.username,
-            profilePicture: user?.profilePicture,
-          },
-          text,
-        },
-      ]);
+      // Use populated comments returned by the backend
+      if (response.comments) {
+        setComments(response.comments);
+      }
 
       setCommentText("");
+      setReplyingTo(null);
     } catch (error: any) {
       console.error("Comment failed:", error);
 
@@ -179,15 +184,84 @@ export default function FeedPost({ post, onDelete }: FeedPostProps) {
     ? new Date(post.createdAt).toLocaleDateString()
     : "";
 
+  // BUILD COMMENT THREADS
+  const topLevelComments = comments.filter((comment) => !comment.parentComment);
+
+  const getReplies = (commentId: string) =>
+    comments.filter(
+      (comment) => String(comment.parentComment) === String(commentId),
+    );
+
+  // RENDER COMMENT AND ITS REPLIES
+  const renderComment = (comment: Comment, depth = 0): React.ReactNode => {
+    const replies = comment._id ? getReplies(comment._id) : [];
+
+    return (
+      <View
+        key={comment._id}
+        style={[styles.commentWrapper, depth > 0 && styles.replyWrapper]}
+      >
+        <View style={styles.commentRow}>
+          <Pressable
+            onPress={() => handleOpenProfile(comment.user?._id)}
+            disabled={!comment.user?._id}
+          >
+            {comment.user?.profilePicture ? (
+              <Image
+                source={{ uri: comment.user.profilePicture }}
+                style={styles.commentAvatar}
+              />
+            ) : (
+              <View style={styles.commentAvatarPlaceholder}>
+                <Text style={styles.commentAvatarLetter}>
+                  {comment.user?.username?.charAt(0)?.toUpperCase() || "U"}
+                </Text>
+              </View>
+            )}
+          </Pressable>
+
+          <View style={styles.commentContent}>
+            <Text style={styles.comment}>
+              <Text
+                style={styles.commentUsername}
+                onPress={() => handleOpenProfile(comment.user?._id)}
+              >
+                {comment.user?.username || "User"}{" "}
+              </Text>
+              <Text style={styles.commentText}>{comment.text}</Text>
+            </Text>
+
+            <View style={styles.commentMeta}>
+              <Pressable onPress={() => handleReply(comment)}>
+                <Text style={styles.replyButtonText}>Reply</Text>
+              </Pressable>
+
+              {comment.createdAt && (
+                <Text style={styles.commentDate}>
+                  {new Date(comment.createdAt).toLocaleDateString()}
+                </Text>
+              )}
+            </View>
+          </View>
+        </View>
+
+        {replies.length > 0 && (
+          <View style={styles.repliesContainer}>
+            {replies.map((reply) => renderComment(reply, depth + 1))}
+          </View>
+        )}
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
       {/* Post Header */}
       <View style={styles.header}>
         <View style={styles.authorSection}>
           <Pressable
-            onPress={handleOpenProfile}
+            onPress={() => handleOpenProfile(authorId)}
             disabled={!authorId}
-            hitSlop={5}
           >
             {author.profilePicture ? (
               <Image
@@ -205,9 +279,8 @@ export default function FeedPost({ post, onDelete }: FeedPostProps) {
 
           <View style={styles.authorInfo}>
             <Pressable
-              onPress={handleOpenProfile}
+              onPress={() => handleOpenProfile(authorId)}
               disabled={!authorId}
-              hitSlop={5}
             >
               <Text style={styles.username}>{author.username || "User"}</Text>
             </Pressable>
@@ -279,29 +352,44 @@ export default function FeedPost({ post, onDelete }: FeedPostProps) {
         </View>
       </View>
 
-      {/* Comments */}
-      {comments.length > 0 && (
+      {/* Comments and Replies */}
+      {topLevelComments.length > 0 && (
         <View style={styles.commentsContainer}>
-          {comments.map((comment, index) => (
-            <Text key={comment._id || index} style={styles.comment}>
-              <Text style={styles.commentUsername}>
-                {comment.user?.username || "User"}{" "}
-              </Text>
-              <Text style={styles.commentText}>{comment.text}</Text>
-            </Text>
-          ))}
+          {topLevelComments.map((comment) => renderComment(comment))}
         </View>
       )}
 
-      {/* Add Comment */}
+      {/* Replying To Indicator */}
+      {replyingTo && (
+        <View style={styles.replyingIndicator}>
+          <Text style={styles.replyingText}>
+            Replying to @{replyingTo.user?.username || "User"}
+          </Text>
+
+          <Pressable
+            onPress={() => {
+              setReplyingTo(null);
+              setCommentText("");
+            }}
+          >
+            <X size={18} color="#555555" />
+          </Pressable>
+        </View>
+      )}
+
+      {/* Add Comment or Reply */}
       <View style={styles.commentInputContainer}>
         <TextInput
           style={styles.commentInput}
-          placeholder="Write a comment..."
+          placeholder={
+            replyingTo
+              ? `Reply to @${replyingTo.user?.username || "User"}...`
+              : "Write a comment..."
+          }
           placeholderTextColor="#999999"
           value={commentText}
           onChangeText={setCommentText}
-          maxLength={500}
+          maxLength={1000}
           editable={!loading}
           returnKeyType="send"
           onSubmitEditing={handleComment}
@@ -453,7 +541,36 @@ const styles = StyleSheet.create({
   commentsContainer: {
     paddingHorizontal: 15,
     paddingTop: 12,
+    gap: 14,
+  },
+  commentWrapper: {
+    width: "100%",
+  },
+  commentRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
     gap: 9,
+  },
+  commentAvatar: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+  },
+  commentAvatarPlaceholder: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "#315efb",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  commentAvatarLetter: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  commentContent: {
+    flex: 1,
   },
   comment: {
     fontSize: 13,
@@ -465,6 +582,48 @@ const styles = StyleSheet.create({
   },
   commentText: {
     color: "#555555",
+  },
+  commentMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    marginTop: 5,
+  },
+  replyButtonText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#315efb",
+  },
+  commentDate: {
+    fontSize: 10,
+    color: "#999999",
+  },
+  repliesContainer: {
+    marginLeft: 19,
+    marginTop: 12,
+    paddingLeft: 11,
+    borderLeftWidth: 2,
+    borderLeftColor: "#E5E7EB",
+    gap: 13,
+  },
+  replyWrapper: {
+    width: "100%",
+  },
+  replyingIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#F3F6FF",
+    marginHorizontal: 13,
+    marginTop: 10,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  replyingText: {
+    fontSize: 12,
+    color: "#315efb",
+    fontWeight: "600",
   },
   commentInputContainer: {
     flexDirection: "row",

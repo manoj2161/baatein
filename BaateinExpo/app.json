@@ -48,7 +48,8 @@
       "expo-secure-store",
       "expo-video",
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true,
@@ -56,8 +57,15 @@
     },
     "extra": {
       "router": {
-        "root": "src/app"
+        "root": "src/app",
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "1b25aca6-f6fe-4333-ad68-ce3203be5264"
       }
-    }
+    },
+    "owner": "manoj262677"
   }
 }
