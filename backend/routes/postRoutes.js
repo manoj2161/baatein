@@ -6,6 +6,7 @@ import upload from "../middleware/uploadMiddleware.js";
 import {
   createPost,
   getFeed,
+  getDiscoverPosts,
   getUserPosts,
   toggleLike,
   addComment,
@@ -19,6 +20,9 @@ router.use(authMiddleware);
 router.post("/", upload.single("media"), createPost);
 
 router.get("/feed", getFeed);
+
+// Discover all posts
+router.get("/discover", getDiscoverPosts);
 
 router.get("/user/:userId", getUserPosts);
 
