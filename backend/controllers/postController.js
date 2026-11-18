@@ -207,10 +207,10 @@ export const toggleLike = async (req, res) => {
   }
 };
 
-// ADD COMMENT
+// ADD COMMENT OR REPLY
 export const addComment = async (req, res) => {
   try {
-    const { text } = req.body;
+    const { text, parentComment } = req.body;
 
     if (!text || !text.trim()) {
       return res.status(400).json({
@@ -226,22 +226,44 @@ export const addComment = async (req, res) => {
       });
     }
 
+    let parent = null;
+
+    // Find the parent comment when replying
+    if (parentComment) {
+      parent = post.comments.id(parentComment);
+
+      if (!parent) {
+        return res.status(404).json({
+          message: "Parent comment not found",
+        });
+      }
+    }
+
+    // Save comment or reply
     post.comments.push({
       user: req.user._id,
       text: text.trim(),
+      parentComment: parent ? parent._id : null,
     });
 
     await post.save();
 
+    // Notify the post owner or parent comment author
     try {
-      await createNotification({
-        recipient: post.user,
-        sender: req.user._id,
-        type: "comment",
-        post: post._id,
-        message: "commented on your post",
-        io: req.app.get("io"),
-      });
+      const recipient = parent ? parent.user : post.user;
+
+      if (recipient.toString() !== req.user._id.toString()) {
+        await createNotification({
+          recipient,
+          sender: req.user._id,
+          type: "comment",
+          post: post._id,
+          message: parent
+            ? "replied to your comment"
+            : "commented on your post",
+          io: req.app.get("io"),
+        });
+      }
     } catch (notificationError) {
       console.error("Comment notification error:", notificationError);
     }
@@ -249,7 +271,7 @@ export const addComment = async (req, res) => {
     await post.populate("comments.user", "username profilePicture");
 
     return res.status(201).json({
-      message: "Comment added",
+      message: parent ? "Reply added" : "Comment added",
       comments: post.comments,
     });
   } catch (error) {

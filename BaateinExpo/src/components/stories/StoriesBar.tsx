@@ -41,10 +41,8 @@ export default function StoriesBar() {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [error, setError] = useState("");
 
-  // Load stories from the backend.
   const loadStories = useCallback(async () => {
     try {
-      setLoading(true);
       setError("");
 
       const data = await getStories();
@@ -61,7 +59,6 @@ export default function StoriesBar() {
     loadStories();
   }, [loadStories]);
 
-  // Update a story after it has been viewed.
   const handleViewed = useCallback((storyId: string) => {
     setStories((currentStories) =>
       currentStories.map((story) =>
@@ -70,7 +67,6 @@ export default function StoriesBar() {
     );
   }, []);
 
-  // Open the Android image/video picker.
   const handleUpload = async () => {
     try {
       setError("");
@@ -100,14 +96,13 @@ export default function StoriesBar() {
       const asset = result.assets[0];
 
       if (asset.type !== "image" && asset.type !== "video") {
-        setError("Please select a valid image or video.");
+        Alert.alert("Invalid media", "Please select a valid image or video.");
         return;
       }
 
       setUploading(true);
 
       await createStory(asset);
-
       await loadStories();
 
       Alert.alert("Success", "Your story has been uploaded.");
@@ -124,7 +119,6 @@ export default function StoriesBar() {
     }
   };
 
-  // Remove a deleted story from the list.
   const handleDelete = (storyId: string) => {
     setStories((currentStories) =>
       currentStories.filter((story) => story._id !== storyId),
@@ -161,7 +155,6 @@ export default function StoriesBar() {
     (story) => String(story.user?._id) !== String(user?._id),
   );
 
-  // Open a story at its position in the complete stories list.
   const openStory = (story: Story) => {
     const index = stories.findIndex((item) => item._id === story._id);
 
@@ -173,17 +166,8 @@ export default function StoriesBar() {
   return (
     <>
       <View style={styles.container}>
-        {/* Heading */}
-        <View style={styles.headingContainer}>
-          <View>
-            <Text style={styles.heading}>Stories</Text>
-            <Text style={styles.subtitle}>See what's happening</Text>
-          </View>
+        <Text style={styles.heading}>Stories</Text>
 
-          <Text style={styles.duration}>24 hours</Text>
-        </View>
-
-        {/* Horizontal Story List */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -258,9 +242,7 @@ export default function StoriesBar() {
                   <View style={styles.avatarButton}>
                     {story.user?.profilePicture ? (
                       <Image
-                        source={{
-                          uri: story.user.profilePicture,
-                        }}
+                        source={{ uri: story.user.profilePicture }}
                         style={styles.avatar}
                       />
                     ) : (
@@ -282,27 +264,18 @@ export default function StoriesBar() {
           })}
         </ScrollView>
 
-        {/* Loading */}
         {loading && (
           <ActivityIndicator
             size="small"
-            color="#315efb"
-            style={styles.message}
+            color="#315EFB"
+            style={styles.loader}
           />
         )}
 
-        {/* Error */}
         {!!error && <Text style={styles.errorText}>{error}</Text>}
-
-        {/* Empty State */}
-        {!loading && stories.length === 0 && (
-          <Text style={styles.emptyText}>
-            No stories yet. Share your first story.
-          </Text>
-        )}
       </View>
 
-      {/* Native Story Viewer */}
+      {/* Story Viewer */}
       <StoryViewer
         visible={selectedIndex !== null}
         stories={stories}
@@ -321,33 +294,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E5E7EB",
     borderRadius: 14,
-    padding: 15,
-    marginBottom: 18,
-  },
-  headingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 18,
+    padding: 13,
+    marginBottom: 14,
   },
   heading: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "700",
     color: "#171717",
-  },
-  subtitle: {
-    fontSize: 12,
-    color: "#777777",
-    marginTop: 4,
-  },
-  duration: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#999999",
+    marginBottom: 13,
   },
   storyList: {
-    gap: 16,
-    paddingBottom: 5,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 15,
+    paddingBottom: 2,
   },
   storyItem: {
     width: 66,
@@ -386,7 +346,7 @@ const styles = StyleSheet.create({
   avatarPlaceholder: {
     flex: 1,
     borderRadius: 28,
-    backgroundColor: "#315efb",
+    backgroundColor: "#315EFB",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -402,7 +362,7 @@ const styles = StyleSheet.create({
     width: 23,
     height: 23,
     borderRadius: 12,
-    backgroundColor: "#315efb",
+    backgroundColor: "#315EFB",
     borderWidth: 2,
     borderColor: "#FFFFFF",
     alignItems: "center",
@@ -411,23 +371,17 @@ const styles = StyleSheet.create({
   username: {
     color: "#666666",
     fontSize: 11,
-    marginTop: 7,
+    marginTop: 6,
     maxWidth: 66,
     textAlign: "center",
   },
-  message: {
-    marginTop: 12,
+  loader: {
+    marginTop: 8,
   },
   errorText: {
     color: "#E04444",
     fontSize: 12,
     textAlign: "center",
-    marginTop: 12,
-  },
-  emptyText: {
-    color: "#999999",
-    fontSize: 12,
-    textAlign: "center",
-    marginTop: 12,
+    marginTop: 8,
   },
 });

@@ -1,9 +1,8 @@
-
 import { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,6 +10,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import { VideoView, useVideoPlayer } from "expo-video";
 import {
@@ -22,12 +22,16 @@ import {
   CheckCircle2,
   Image as ImageIcon,
   Film,
+  CircleCheck,
+  AlertCircle,
 } from "lucide-react-native";
 
 import { createPost } from "../../services/postService";
 
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 const MAX_VIDEO_SIZE = 100 * 1024 * 1024;
+
+type DialogType = "success" | "error" | null;
 
 function VideoPreview({ uri }: { uri: string }) {
   const player = useVideoPlayer(uri, (instance) => {
@@ -46,12 +50,23 @@ function VideoPreview({ uri }: { uri: string }) {
 
 export default function CreatePostScreen() {
   const [caption, setCaption] = useState("");
-  const [media, setMedia] =
-    useState<ImagePicker.ImagePickerAsset | null>(null);
+  const [media, setMedia] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [dialogType, setDialogType] = useState<DialogType>(null);
+  const [dialogMessage, setDialogMessage] = useState("");
 
   const isVideo = media?.type === "video";
+
+  const showDialog = (type: DialogType, message: string) => {
+    setDialogType(type);
+    setDialogMessage(message);
+  };
+
+  const closeDialog = () => {
+    setDialogType(null);
+    setDialogMessage("");
+  };
 
   const chooseMedia = async (type: "image" | "video") => {
     try {
@@ -66,8 +81,7 @@ export default function CreatePostScreen() {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes:
-          type === "image" ? ["images"] : ["videos"],
+        mediaTypes: type === "image" ? ["images"] : ["videos"],
         allowsEditing: false,
         quality: 0.8,
         videoMaxDuration: 60,
@@ -108,7 +122,6 @@ export default function CreatePostScreen() {
 
   const removeMedia = () => {
     if (loading) return;
-
     setMedia(null);
     setError("");
   };
@@ -130,13 +143,14 @@ export default function CreatePostScreen() {
       setCaption("");
       setMedia(null);
 
-      Alert.alert("Success", "Your post has been shared.");
+      showDialog("success", "Your post has been shared successfully.");
     } catch (err: any) {
       console.error("Post creation failed:", err);
 
-      setError(
+      showDialog(
+        "error",
         err.response?.data?.message ||
-          "Unable to create post. Please try again."
+          "Unable to create post. Please try again.",
       );
     } finally {
       setLoading(false);
@@ -144,194 +158,236 @@ export default function CreatePostScreen() {
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-    >
-      {/* Caption */}
-      <View style={styles.card}>
-        <View style={styles.sectionHeading}>
-          <View style={styles.headingIcon}>
-            <Sparkles size={21} color="#315efb" />
-          </View>
-
-          <View style={{ flex: 1 }}>
-            <Text style={styles.sectionTitle}>
-              Start with a thought
-            </Text>
-            <Text style={styles.sectionSubtitle}>
-              Every post has a story behind it.
-            </Text>
-          </View>
-        </View>
-
-        <TextInput
-          value={caption}
-          onChangeText={setCaption}
-          placeholder="What's happening in your world?"
-          placeholderTextColor="#999999"
-          multiline
-          maxLength={2200}
-          textAlignVertical="top"
-          style={styles.captionInput}
-        />
-
-        <View style={styles.characterCount}>
-          <Text style={styles.countText}>
-            {caption.length} / 2200
-          </Text>
-        </View>
-      </View>
-
-      {/* Media */}
-      <View style={styles.card}>
-        <View style={styles.mediaHeader}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.sectionTitle}>Your moment</Text>
-            <Text style={styles.sectionSubtitle}>
-              Add a photo or video to your post.
-            </Text>
-          </View>
-
-          <View style={styles.headingIcon}>
-            <ImageIcon size={20} color="#315efb" />
-          </View>
-        </View>
-
-        {!media ? (
-          <View style={styles.uploadArea}>
-            <View style={styles.uploadIcon}>
-              <ImagePlus size={34} color="#315efb" />
+    <SafeAreaView style={styles.safeArea} edges={["top"]}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.card}>
+          <View style={styles.sectionHeading}>
+            <View style={styles.headingIcon}>
+              <Sparkles size={21} color="#315efb" />
             </View>
 
-            <Text style={styles.uploadTitle}>
-              Bring your moment to life
-            </Text>
-
-            <Text style={styles.uploadDescription}>
-              Choose something from your device to share with your followers.
-            </Text>
-
-            <View style={styles.pickerButtons}>
-              <Pressable
-                style={styles.photoButton}
-                onPress={() => chooseMedia("image")}
-              >
-                <ImagePlus size={18} color="#FFFFFF" />
-                <Text style={styles.photoButtonText}>Choose Photo</Text>
-              </Pressable>
-
-              <Pressable
-                style={styles.videoButton}
-                onPress={() => chooseMedia("video")}
-              >
-                <Video size={18} color="#444444" />
-                <Text style={styles.videoButtonText}>Choose Video</Text>
-              </Pressable>
-            </View>
-
-            <Text style={styles.limitText}>
-              Images up to 10 MB · Videos up to 100 MB
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.selectedMedia}>
-            <View style={styles.selectedHeader}>
-              <View style={styles.fileInfo}>
-                <View style={styles.fileIcon}>
-                  {isVideo ? (
-                    <Film size={18} color="#315efb" />
-                  ) : (
-                    <ImageIcon size={18} color="#315efb" />
-                  )}
-                </View>
-
-                <View style={{ flex: 1 }}>
-                  <Text numberOfLines={1} style={styles.fileName}>
-                    {media.fileName || "Selected media"}
-                  </Text>
-
-                  <Text style={styles.fileSize}>
-                    {media.fileSize
-                      ? `${(media.fileSize / (1024 * 1024)).toFixed(2)} MB`
-                      : "Media selected"}
-                  </Text>
-                </View>
-              </View>
-
-              <Pressable
-                onPress={removeMedia}
-                disabled={loading}
-                style={styles.removeButton}
-              >
-                <X size={19} color="#666666" />
-              </Pressable>
-            </View>
-
-            <View style={styles.previewContainer}>
-              {isVideo ? (
-                <VideoPreview uri={media.uri} />
-              ) : (
-                <Image
-                  source={{ uri: media.uri }}
-                  style={styles.previewMedia}
-                  resizeMode="contain"
-                />
-              )}
-            </View>
-
-            <View style={styles.readyMessage}>
-              <CheckCircle2 size={16} color="#16A34A" />
-              <Text style={styles.readyText}>
-                Media ready to share
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sectionTitle}>Start with a thought</Text>
+              <Text style={styles.sectionSubtitle}>
+                Every post has a story behind it.
               </Text>
             </View>
           </View>
-        )}
-      </View>
 
-      {/* Error */}
-      {error !== "" && (
-        <View style={styles.errorBox}>
-          <Text style={styles.errorText}>{error}</Text>
+          <TextInput
+            value={caption}
+            onChangeText={setCaption}
+            placeholder="What's happening in your world?"
+            placeholderTextColor="#999999"
+            multiline
+            maxLength={2200}
+            textAlignVertical="top"
+            style={styles.captionInput}
+          />
+
+          <View style={styles.characterCount}>
+            <Text style={styles.countText}>{caption.length} / 2200</Text>
+          </View>
         </View>
-      )}
 
-      {/* Share */}
-      <View style={styles.shareCard}>
-        <Text style={styles.shareTitle}>
-          Ready to share your moment?
-        </Text>
+        <View style={styles.card}>
+          <View style={styles.mediaHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sectionTitle}>Your moment</Text>
+              <Text style={styles.sectionSubtitle}>
+                Add a photo or video to your post.
+              </Text>
+            </View>
 
-        <Text style={styles.shareSubtitle}>
-          Your followers will be able to see your new post.
-        </Text>
+            <View style={styles.headingIcon}>
+              <ImageIcon size={20} color="#315efb" />
+            </View>
+          </View>
 
-        <Pressable
-          onPress={handleSubmit}
-          disabled={loading || !media}
-          style={[
-            styles.shareButton,
-            (!media || loading) && styles.disabledButton,
-          ]}
-        >
-          {loading ? (
-            <ActivityIndicator color="#FFFFFF" />
+          {!media ? (
+            <View style={styles.uploadArea}>
+              <View style={styles.uploadIcon}>
+                <ImagePlus size={34} color="#315efb" />
+              </View>
+
+              <Text style={styles.uploadTitle}>Bring your moment to life</Text>
+
+              <Text style={styles.uploadDescription}>
+                Choose something from your device to share with your followers.
+              </Text>
+
+              <View style={styles.pickerButtons}>
+                <Pressable
+                  style={styles.photoButton}
+                  onPress={() => chooseMedia("image")}
+                >
+                  <ImagePlus size={18} color="#FFFFFF" />
+                  <Text style={styles.photoButtonText}>Choose Photo</Text>
+                </Pressable>
+
+                <Pressable
+                  style={styles.videoButton}
+                  onPress={() => chooseMedia("video")}
+                >
+                  <Video size={18} color="#444444" />
+                  <Text style={styles.videoButtonText}>Choose Video</Text>
+                </Pressable>
+              </View>
+
+              <Text style={styles.limitText}>
+                Images up to 10 MB · Videos up to 100 MB
+              </Text>
+            </View>
           ) : (
-            <>
-              <Send size={17} color="#FFFFFF" />
-              <Text style={styles.shareButtonText}>Share Post</Text>
-            </>
+            <View style={styles.selectedMedia}>
+              <View style={styles.selectedHeader}>
+                <View style={styles.fileInfo}>
+                  <View style={styles.fileIcon}>
+                    {isVideo ? (
+                      <Film size={18} color="#315efb" />
+                    ) : (
+                      <ImageIcon size={18} color="#315efb" />
+                    )}
+                  </View>
+
+                  <View style={{ flex: 1 }}>
+                    <Text numberOfLines={1} style={styles.fileName}>
+                      {media.fileName || "Selected media"}
+                    </Text>
+
+                    <Text style={styles.fileSize}>
+                      {media.fileSize
+                        ? `${(media.fileSize / (1024 * 1024)).toFixed(2)} MB`
+                        : "Media selected"}
+                    </Text>
+                  </View>
+                </View>
+
+                <Pressable
+                  onPress={removeMedia}
+                  disabled={loading}
+                  style={styles.removeButton}
+                >
+                  <X size={19} color="#666666" />
+                </Pressable>
+              </View>
+
+              <View style={styles.previewContainer}>
+                {isVideo ? (
+                  <VideoPreview uri={media.uri} />
+                ) : (
+                  <Image
+                    source={{ uri: media.uri }}
+                    style={styles.previewMedia}
+                    resizeMode="contain"
+                  />
+                )}
+              </View>
+
+              <View style={styles.readyMessage}>
+                <CheckCircle2 size={16} color="#16A34A" />
+                <Text style={styles.readyText}>Media ready to share</Text>
+              </View>
+            </View>
           )}
-        </Pressable>
-      </View>
-    </ScrollView>
+        </View>
+
+        {error !== "" && (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        )}
+
+        <View style={styles.shareCard}>
+          <Text style={styles.shareTitle}>Ready to share your moment?</Text>
+
+          <Text style={styles.shareSubtitle}>
+            Your followers will be able to see your new post.
+          </Text>
+
+          <Pressable
+            onPress={handleSubmit}
+            disabled={loading || !media}
+            style={[
+              styles.shareButton,
+              (!media || loading) && styles.disabledButton,
+            ]}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <>
+                <Send size={17} color="#FFFFFF" />
+                <Text style={styles.shareButtonText}>Share Post</Text>
+              </>
+            )}
+          </Pressable>
+        </View>
+      </ScrollView>
+
+      {/* Custom Success / Error Dialog */}
+      <Modal
+        visible={dialogType !== null}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={closeDialog}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={closeDialog} />
+
+          <View style={styles.dialogCard}>
+            <View
+              style={[
+                styles.dialogIcon,
+                dialogType === "success"
+                  ? styles.successIcon
+                  : styles.errorIcon,
+              ]}
+            >
+              {dialogType === "success" ? (
+                <CircleCheck size={34} color="#16A34A" />
+              ) : (
+                <AlertCircle size={34} color="#DC2626" />
+              )}
+            </View>
+
+            <Text style={styles.dialogTitle}>
+              {dialogType === "success"
+                ? "Post Shared!"
+                : "Something went wrong"}
+            </Text>
+
+            <Text style={styles.dialogMessage}>{dialogMessage}</Text>
+
+            <Pressable
+              onPress={closeDialog}
+              style={[
+                styles.dialogButton,
+                dialogType === "error" && styles.errorDialogButton,
+              ]}
+            >
+              <Text style={styles.dialogButtonText}>
+                {dialogType === "success" ? "Continue" : "Try Again"}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#FAFAFA",
+  },
   container: {
     flex: 1,
     backgroundColor: "#FAFAFA",
@@ -581,5 +637,67 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.5,
+  },
+
+  // Custom dialog styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.48)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+  dialogCard: {
+    width: "100%",
+    maxWidth: 360,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 25,
+    alignItems: "center",
+    elevation: 12,
+  },
+  dialogIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 18,
+  },
+  successIcon: {
+    backgroundColor: "#DCFCE7",
+  },
+  errorIcon: {
+    backgroundColor: "#FEE2E2",
+  },
+  dialogTitle: {
+    color: "#171717",
+    fontSize: 20,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  dialogMessage: {
+    color: "#777777",
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: "center",
+    marginTop: 10,
+  },
+  dialogButton: {
+    width: "100%",
+    height: 49,
+    borderRadius: 13,
+    backgroundColor: "#315EFB",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 24,
+  },
+  errorDialogButton: {
+    backgroundColor: "#DC2626",
+  },
+  dialogButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "700",
   },
 });

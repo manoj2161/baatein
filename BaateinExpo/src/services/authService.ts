@@ -28,6 +28,12 @@ export interface UpdateProfileData {
   status?: string;
 }
 
+// EMAIL CHANGE RESPONSE
+export interface EmailChangeResponse {
+  message: string;
+  pendingEmail: string;
+}
+
 // SIGNUP
 export const signupUser = async (data: {
   username: string;
@@ -79,6 +85,22 @@ export const updateProfile = async (
   );
 
   return response.data.user;
+};
+
+// REQUEST EMAIL CHANGE
+export const requestEmailChange = async (
+  email: string,
+  currentPassword: string,
+): Promise<EmailChangeResponse> => {
+  const response = await api.post<EmailChangeResponse>(
+    "/users/settings/email",
+    {
+      email: email.trim().toLowerCase(),
+      currentPassword,
+    },
+  );
+
+  return response.data;
 };
 
 // UPLOAD PROFILE PICTURE

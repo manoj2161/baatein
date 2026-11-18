@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { VideoView, useVideoPlayer } from "expo-video";
+import { useRouter } from "expo-router";
 import {
   Heart,
   MessageCircle,
@@ -51,6 +52,7 @@ interface FeedPostProps {
 
 export default function FeedPost({ post, onDelete }: FeedPostProps) {
   const { user } = useAuth();
+  const router = useRouter();
 
   const [liked, setLiked] = useState(
     post.likes?.some((id) => String(id?._id || id) === String(user?._id)) ||
@@ -58,9 +60,7 @@ export default function FeedPost({ post, onDelete }: FeedPostProps) {
   );
 
   const [likesCount, setLikesCount] = useState(post.likes?.length || 0);
-
   const [comments, setComments] = useState<Comment[]>(post.comments || []);
-
   const [commentText, setCommentText] = useState("");
   const [loading, setLoading] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -68,8 +68,16 @@ export default function FeedPost({ post, onDelete }: FeedPostProps) {
 
   const author = post.user || {};
   const authorId = author._id;
-
   const isOwner = String(authorId) === String(user?._id);
+
+  const handleOpenProfile = () => {
+    if (!authorId) return;
+
+    router.push({
+      pathname: "/user/[userId]",
+      params: { userId: authorId },
+    });
+  };
 
   const player = useVideoPlayer(
     post.mediaType === "video" ? post.mediaUrl || null : null,
@@ -84,14 +92,12 @@ export default function FeedPost({ post, onDelete }: FeedPostProps) {
     const previousLiked = liked;
 
     setLiked(!previousLiked);
-
     setLikesCount((count) => (previousLiked ? count - 1 : count + 1));
 
     try {
       await toggleLike(post._id);
     } catch (error) {
       setLiked(previousLiked);
-
       setLikesCount((count) => (previousLiked ? count + 1 : count - 1));
 
       console.error("Like failed:", error);
@@ -178,21 +184,33 @@ export default function FeedPost({ post, onDelete }: FeedPostProps) {
       {/* Post Header */}
       <View style={styles.header}>
         <View style={styles.authorSection}>
-          {author.profilePicture ? (
-            <Image
-              source={{ uri: author.profilePicture }}
-              style={styles.avatar}
-            />
-          ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Text style={styles.avatarLetter}>
-                {author.username?.charAt(0)?.toUpperCase() || "U"}
-              </Text>
-            </View>
-          )}
+          <Pressable
+            onPress={handleOpenProfile}
+            disabled={!authorId}
+            hitSlop={5}
+          >
+            {author.profilePicture ? (
+              <Image
+                source={{ uri: author.profilePicture }}
+                style={styles.avatar}
+              />
+            ) : (
+              <View style={styles.avatarPlaceholder}>
+                <Text style={styles.avatarLetter}>
+                  {author.username?.charAt(0)?.toUpperCase() || "U"}
+                </Text>
+              </View>
+            )}
+          </Pressable>
 
           <View style={styles.authorInfo}>
-            <Text style={styles.username}>{author.username || "User"}</Text>
+            <Pressable
+              onPress={handleOpenProfile}
+              disabled={!authorId}
+              hitSlop={5}
+            >
+              <Text style={styles.username}>{author.username || "User"}</Text>
+            </Pressable>
 
             <Text style={styles.date}>{formattedDate}</Text>
           </View>
@@ -217,7 +235,6 @@ export default function FeedPost({ post, onDelete }: FeedPostProps) {
                   disabled={deleting}
                 >
                   <Trash2 size={17} color="#E04444" />
-
                   <Text style={styles.deleteMenuText}>Delete post</Text>
                 </Pressable>
               </View>
@@ -253,13 +270,11 @@ export default function FeedPost({ post, onDelete }: FeedPostProps) {
             color={liked ? "#EF4444" : "#444444"}
             fill={liked ? "#EF4444" : "transparent"}
           />
-
           <Text style={styles.actionCount}>{likesCount}</Text>
         </Pressable>
 
         <View style={styles.actionButton}>
           <MessageCircle size={23} color="#444444" />
-
           <Text style={styles.actionCount}>{comments.length}</Text>
         </View>
       </View>
@@ -272,7 +287,6 @@ export default function FeedPost({ post, onDelete }: FeedPostProps) {
               <Text style={styles.commentUsername}>
                 {comment.user?.username || "User"}{" "}
               </Text>
-
               <Text style={styles.commentText}>{comment.text}</Text>
             </Text>
           ))}

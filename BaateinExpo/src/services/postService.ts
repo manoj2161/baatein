@@ -1,9 +1,15 @@
 import api from "./api";
 import type { ImagePickerAsset } from "expo-image-picker";
 
-// GET FEED
+// GET HOME FEED
 export const getFeed = async () => {
   const response = await api.get("/posts/feed");
+  return response.data.posts || [];
+};
+
+// GET DISCOVER POSTS
+export const getDiscoverPosts = async () => {
+  const response = await api.get("/posts/discover");
   return response.data.posts || [];
 };
 
@@ -53,7 +59,6 @@ export const toggleLike = async (postId: string) => {
 // ADD COMMENT
 export const addComment = async (postId: string, text: string) => {
   const response = await api.post(`/posts/${postId}/comments`, { text });
-
   return response.data;
 };
 

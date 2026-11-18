@@ -11,6 +11,7 @@ import {
   Text,
   TextInput,
   View,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "expo-router";
@@ -108,9 +109,10 @@ export default function MessagesScreen() {
   const [searching, setSearching] = useState(false);
   const [typingUser, setTypingUser] = useState(false);
 
+  // Hide the native header because this screen has its own header.
   useEffect(() => {
     navigation.setOptions({
-      headerShown: !selectedConversation,
+      headerShown: false,
       tabBarStyle: selectedConversation ? { display: "none" } : undefined,
     });
   }, [navigation, selectedConversation]);
@@ -204,7 +206,6 @@ export default function MessagesScreen() {
         markMessagesAsRead(conversationId),
       ]);
 
-      // Remove any duplicate IDs returned by the API.
       const uniqueMessages = Array.from(
         new Map(
           messageList.map((message: AnyObject, index: number) => [
@@ -429,8 +430,6 @@ export default function MessagesScreen() {
         result.assets[0],
       );
 
-      // API response and Socket.IO can deliver the same message.
-      // Add it only once using its database ID.
       addMessageIfNew(newMessage);
 
       setMessageText("");
@@ -653,10 +652,10 @@ export default function MessagesScreen() {
     const isOnline = onlineUsers.has(getId(selectedUser));
 
     return (
-      <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+      <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
         <KeyboardAvoidingView
           style={styles.chatContainer}
-          behavior="padding"
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
           keyboardVerticalOffset={0}
         >
           <View style={styles.chatHeader}>
@@ -757,7 +756,7 @@ export default function MessagesScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+    <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
       <View style={styles.pageHeader}>
         <View>
           <Text style={styles.pageTitle}>Messages</Text>
@@ -877,11 +876,9 @@ export default function MessagesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: "#FFFFFF",
-    paddingTop: 6,
-    paddingBottom: 8,
   },
   pageHeader: {
     paddingHorizontal: 20,
@@ -890,6 +887,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    backgroundColor: "#FFFFFF",
   },
   pageTitle: {
     fontSize: 26,
@@ -959,6 +957,7 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     borderBottomWidth: 1,
     borderBottomColor: "#F1F1F1",
+    backgroundColor: "#FFFFFF",
   },
   avatarContainer: {
     position: "relative",
@@ -1063,9 +1062,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "#FFFFFF",
   },
   chatContainer: {
     flex: 1,
+    backgroundColor: "#FFFFFF",
   },
   chatHeader: {
     minHeight: 66,
@@ -1075,6 +1076,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderBottomWidth: 1,
     borderBottomColor: "#EEEEEE",
+    backgroundColor: "#FFFFFF",
   },
   backButton: {
     padding: 7,
@@ -1114,6 +1116,7 @@ const styles = StyleSheet.create({
     padding: 15,
     flexGrow: 1,
     justifyContent: "flex-end",
+    backgroundColor: "#FFFFFF",
   },
   messageRow: {
     flexDirection: "row",

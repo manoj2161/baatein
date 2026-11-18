@@ -6,7 +6,7 @@ import {
   MessageCircle,
   UserRound,
   Bell,
-  Search,
+  Compass,
 } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -35,7 +35,6 @@ export default function AppTabs() {
         },
       }}
     >
-      {/* HOME */}
       <Tabs.Screen
         name="index"
         options={{
@@ -58,15 +57,19 @@ export default function AppTabs() {
           headerRight: () => (
             <View style={styles.headerActions}>
               <Pressable
-                onPress={() => router.push("/search")}
+                onPress={() => router.push("/discover")}
                 style={styles.headerButton}
+                accessibilityRole="button"
+                accessibilityLabel="Discover posts"
               >
-                <Search size={21} color="#333333" />
+                <Compass size={21} color="#333333" />
               </Pressable>
 
               <Pressable
                 onPress={() => router.push("/notification-center")}
                 style={styles.headerButton}
+                accessibilityRole="button"
+                accessibilityLabel="Notifications"
               >
                 <Bell size={21} color="#333333" />
 
@@ -88,7 +91,6 @@ export default function AppTabs() {
         }}
       />
 
-      {/* THE UNSENT */}
       <Tabs.Screen
         name="unsent"
         options={{
@@ -99,7 +101,6 @@ export default function AppTabs() {
         }}
       />
 
-      {/* CREATE */}
       <Tabs.Screen
         name="create"
         options={{
@@ -110,7 +111,6 @@ export default function AppTabs() {
         }}
       />
 
-      {/* MESSAGES */}
       <Tabs.Screen
         name="messages"
         options={{
@@ -121,7 +121,6 @@ export default function AppTabs() {
         }}
       />
 
-      {/* PROFILE */}
       <Tabs.Screen
         name="profile"
         options={{
@@ -132,10 +131,8 @@ export default function AppTabs() {
         }}
       />
 
-      {/* HIDDEN ROUTES */}
-      <Tabs.Screen name="search" options={{ href: null }} />
-      <Tabs.Screen name="notifications" options={{ href: null }} />
       <Tabs.Screen name="explore" options={{ href: null }} />
+      <Tabs.Screen name="notifications" options={{ href: null }} />
     </Tabs>
   );
 }
